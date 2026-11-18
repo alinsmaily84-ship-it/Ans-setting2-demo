@@ -10,7 +10,7 @@ export function validateDemoOrder({ symbol, quantity, price, notional, exchangeI
   if (!Number.isFinite(qty) || qty <= 0) return {ok:false,reason:'INVALID_QUANTITY'};
   const places = Math.max(decimalPlaces(lot.stepSize),decimalPlaces(lot.minQty),decimalPlaces(quantity));
   const q = scaled(quantity,places), step = scaled(lot.stepSize,places), min = scaled(lot.minQty,places), max = scaled(lot.maxQty,places);
-  if (step <= 0n || q < min || q > max || (q-min)%step !== 0n) return {ok:false,reason:'LOT_SIZE_MISMATCH'};
+  if (step <= 0n || q < min || q > max || q%step !== 0n) return {ok:false,reason:'LOT_SIZE_MISMATCH'};
   const minimum = market.filters.find(f => f.filterType === 'MIN_NOTIONAL')?.notional;
   const value = Number.isFinite(Number(notional)) ? Number(notional) : qty * Number(price);
   if (!Number.isFinite(value) || value <= 0) return {ok:false,reason:'INVALID_NOTIONAL'};
