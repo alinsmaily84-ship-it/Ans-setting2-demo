@@ -14,7 +14,7 @@ export class BinanceDemoClient {
   }
   async request(method, path, params = {}, signed = true) {
     if (!['GET', 'POST', 'DELETE'].includes(method)) throw new Error('Unsupported method');
-    if (!/^\/fapi\/v1\/[A-Za-z]+$/.test(path)) throw new Error('Unsupported path');
+    if (!/^\/fapi\/v[12]\/[A-Za-z]+$/.test(path)) throw new Error('Unsupported path');
     const query = new URLSearchParams();
     for (const [key, value] of Object.entries(params)) if (value !== undefined && value !== null) query.set(key, String(value));
     if (signed) {
