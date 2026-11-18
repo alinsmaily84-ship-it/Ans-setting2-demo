@@ -1,4 +1,6 @@
 import {createServer} from 'node:http';
+import {timingSafeEqual} from 'node:crypto';
+import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
 const port=Number(process.env.PORT||3000);
 const host='0.0.0.0';
@@ -7,6 +9,42 @@ const startedAt=Date.now();
 const server=createServer(async(req,res)=>{
   res.setHeader('content-type','application/json; charset=utf-8');
   res.setHeader('cache-control','no-store');
+  if(req.method==='POST' && req.url==='/manual-trade') {
+    const token=process.env.ANS_DEMO_OPERATOR_TOKEN||'';
+    const provided=String(req.headers.authorization||'').replace(/^Bearer /,'');
+    const a=Buffer.from(token),b=Buffer.from(provided);
+    if(!token||!provided||a.length!==b.length||!timingSafeEqual(a,b)){
+      res.writeHead(401);res.end(JSON.stringify({error:'UNAUTHORIZED'}));return;
+    }
+    if(process.env.ANS_DEMO_MANUAL_TRADING!=='YES'){
+      res.writeHead(403);res.end(JSON.stringify({error:'MANUAL_TRADING_DISABLED'}));return;
+    }
+    let raw='';
+    try {
+      for await(const chunk of req){raw+=chunk;if(raw.length>1024)throw new Error('BODY_TOO_LARGE');}
+      const body=JSON.parse(raw);
+      const {action,symbol,direction,quantity}=body;
+      if(!['open','close'].includes(action)||typeof symbol!=='string'||!/^[A-Z0-9]{3,24}$/.test(symbol)||
+         (action==='open'&&(!['LONG','SHORT'].includes(direction)||!(Number(quantity)>0)))||
+         (action==='close'&&(direction!==undefined||quantity!==undefined)))
+        throw new Error('INVALID_ORDER_REQUEST');
+      const args=['demo-trade-cli.mjs',action,symbol];
+      if(action==='open')args.push(direction,String(quantity));
+      const result=await new Promise((resolve,reject)=>{
+        const child=spawn(process.execPath,args,{cwd:new URL('.',import.meta.url).pathname,env:process.env,stdio:['ignore','pipe','pipe']});
+        let out='',err='';
+        child.stdout.on('data',x=>{out+=x;if(out.length>8192)child.kill();});
+        child.stderr.on('data',x=>{err+=x;if(err.length>8192)child.kill();});
+        child.on('error',reject);
+        child.on('close',code=>resolve({code,out,err}));
+      });
+      res.writeHead(result.code===0?200:502);
+      res.end(JSON.stringify({ok:result.code===0,result:result.out.slice(0,8192),error:result.code===0?null:'ORDER_NOT_CONFIRMED'}));
+    } catch(error){
+      res.writeHead(400);res.end(JSON.stringify({error:String(error.message).slice(0,100)}));
+    }
+    return;
+  }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
   if(req.url==='/health') {res.writeHead(200);res.end(JSON.stringify({status:'ok',venue:'BINANCE_FUTURES_DEMO',execution:'DISABLED',uptimeMs:Date.now()-startedAt}));return;}
   if(req.url==='/readiness') {
