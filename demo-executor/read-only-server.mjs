@@ -61,7 +61,8 @@ const server=createServer(async(req,res)=>{
     }catch(error){
       const msg=String(error?.message||error);
       const restricted=/restricted location|eligibility|service unavailable/i.test(msg);
-      const httpStatus=msg.match(/Binance Demo HTTP (\d{3})/); const binanceCode=msg.match(/\\?"code\\?"\s*:\s*(-?\d+)/);\n      res.writeHead(503);res.end(JSON.stringify({authenticated:false,error:restricted?'LOCATION_RESTRICTED':'AUTH_OR_NETWORK_FAILURE',upstreamHttpStatus:httpStatus?Number(httpStatus[1]):null,binanceCode:binanceCode?Number(binanceCode[1]):null}));
+      const httpStatus=msg.match(/Binance Demo HTTP (\d{3})/); const binanceCode=msg.match(/\\?"code\\?"\s*:\s*(-?\d+)/);
+      res.writeHead(503);res.end(JSON.stringify({authenticated:false,error:restricted?'LOCATION_RESTRICTED':'AUTH_OR_NETWORK_FAILURE',upstreamHttpStatus:httpStatus?Number(httpStatus[1]):null,binanceCode:binanceCode?Number(binanceCode[1]):null}));
     }
     return;
   }
