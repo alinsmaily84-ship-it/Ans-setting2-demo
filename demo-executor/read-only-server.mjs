@@ -51,6 +51,20 @@ const server=createServer(async(req,res)=>{
     const credentialsPresent=Boolean(process.env.BINANCE_DEMO_API_KEY&&process.env.BINANCE_DEMO_API_SECRET);
     res.writeHead(200);res.end(JSON.stringify({execution:'DISABLED',strategyParity:'NOT_VERIFIED',credentialsPresent,readyForTrading:false}));return;
   }
+  if(req.method==='GET' && req.url==='/demo-auth-check') {
+    try {
+      const key=process.env.BINANCE_DEMO_API_KEY,secret=process.env.BINANCE_DEMO_API_SECRET;
+      if(!key||!secret){res.writeHead(503);res.end(JSON.stringify({authenticated:false,error:'CREDENTIALS_MISSING'}));return;}
+      const client=new BinanceDemoClient({apiKey:key,apiSecret:secret});
+      const positions=await client.positions();
+      res.writeHead(200);res.end(JSON.stringify({authenticated:Array.isArray(positions),venue:'BINANCE_FUTURES_DEMO',activePositions:Array.isArray(positions)?positions.filter(p=>Number(p.positionAmt)!==0).length:null}));
+    }catch(error){
+      const msg=String(error?.message||error);
+      const restricted=/restricted location|eligibility|service unavailable/i.test(msg);
+      res.writeHead(503);res.end(JSON.stringify({authenticated:false,error:restricted?'LOCATION_RESTRICTED':'AUTH_OR_NETWORK_FAILURE'}));
+    }
+    return;
+  }
   if(req.url==='/demo-connectivity') {
     try {
       const key=process.env.BINANCE_DEMO_API_KEY,secret=process.env.BINANCE_DEMO_API_SECRET;
