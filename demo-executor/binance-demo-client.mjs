@@ -30,6 +30,7 @@ export class BinanceDemoClient {
   }
   exchangeInfo() { return this.request('GET','/fapi/v1/exchangeInfo',{},false); }
   positions() { return this.request('GET','/fapi/v1/positionRisk'); }
+  incomeHistory(params = {}) { return this.request('GET','/fapi/v1/income',params); }
   openOrders(symbol) { return this.request('GET','/fapi/v1/openOrders',symbol ? {symbol} : {}); }
   orderStatus(symbol, orderId) { return this.request('GET','/fapi/v1/order',{symbol,orderId}); }
   submitOrder(params) { return this.request('POST','/fapi/v1/order',params); }
