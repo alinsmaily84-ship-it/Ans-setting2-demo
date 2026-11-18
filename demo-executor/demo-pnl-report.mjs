@@ -40,6 +40,8 @@ for(let start=since;start<=now;start+=windowMs){
     cursor=lastTime+1;
   }
 }
+if(records.some(r=>r.asset!=='USDT')) throw new Error('Non-USDT income found; refusing to mix currency units in totals');
+if(active.some(p=>p.marginAsset && p.marginAsset!=='USDT')) throw new Error('Non-USDT active position found; cannot aggregate PnL in USDT');
 const totals={REALIZED_PNL:0,COMMISSION:0,FUNDING_FEE:0,OTHER:0};
 for(const record of records){
   const value=Number(record.income);
@@ -54,7 +56,7 @@ console.log(JSON.stringify({
   periodStart:new Date(since).toISOString(),
   periodEnd:new Date(now).toISOString(),
   incomeRecords:records.length,
-  currencyNote:'Amounts are income asset units; USDT totals require USDT-only records',
+  currency:'USDT',
   incomeAssets:[...new Set(records.map(x=>x.asset))],
   realizedTradingPnl:totals.REALIZED_PNL,
   commissions:totals.COMMISSION,
