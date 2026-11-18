@@ -16,11 +16,15 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method==='POST' && req.url==='/manual-trade') {
-    const token=process.env.ANS_DEMO_OPERATOR_TOKEN||'';
-    const provided=String(req.headers.authorization||'').replace(/^Bearer /,'');
-    const a=Buffer.from(token),b=Buffer.from(provided);
-    if(!token||!provided||a.length!==b.length||!timingSafeEqual(a,b)){
-      res.writeHead(401);res.end(JSON.stringify({error:'UNAUTHORIZED'}));return;
+    // Explicitly user-authorized Demo-only manual operator mode.
+    // Never enable on live venues or without the Demo-only switch.
+    if(process.env.ANS_DEMO_UNPROTECTED_OPERATOR!=='YES'){
+      const token=process.env.ANS_DEMO_OPERATOR_TOKEN||'';
+      const provided=String(req.headers.authorization||'').replace(/^Bearer /,'');
+      const a=Buffer.from(token),b=Buffer.from(provided);
+      if(!token||!provided||a.length!==b.length||!timingSafeEqual(a,b)){
+        res.writeHead(401);res.end(JSON.stringify({error:'UNAUTHORIZED'}));return;
+      }
     }
     if(process.env.ANS_DEMO_MANUAL_TRADING!=='YES'){
       res.writeHead(403);res.end(JSON.stringify({error:'MANUAL_TRADING_DISABLED'}));return;
