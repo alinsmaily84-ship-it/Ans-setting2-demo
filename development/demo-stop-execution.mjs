@@ -25,6 +25,33 @@ export async function submitAndVerifyDemoPrimaryStop({
      (positionSide==='LONG'&&qty<=0) ||
      (positionSide==='SHORT'&&qty>=0))
     return {protected:false,submitted:false,reason:'POSITION_SIDE_INVALID'};
+  // Pre-submit readback: never create a second stop blindly when a matching
+  // active protective order already exists. Reconcile it before any retry.
+  let preflight;
+  try {
+    preflight=await fetchDemoAccountSnapshot({apiKey,apiSecret,fetchImpl});
+  } catch {
+    return {protected:false,submitted:false,reason:'PRE_SUBMISSION_READBACK_FAILED'};
+  }
+  const current=preflight.positions.filter(p=>
+    p.symbol===stop.symbol && (p.positionSide||'BOTH')===positionSide
+  );
+  if(current.length!==1 ||
+     Number(current[0].positionAmt)!==qty ||
+     Math.abs(Number(current[0].entryPrice)-entry)>Math.max(1e-8,entry*1e-8))
+    return {protected:false,submitted:false,reason:'PRE_SUBMISSION_POSITION_CHANGED'};
+  const existing=preflight.algoOrders.filter(o=>
+    o.symbol===stop.symbol &&
+    (o.positionSide||'BOTH')===positionSide &&
+    o.side===(qty>0?'SELL':'BUY') &&
+    (o.orderType||o.type)==='STOP_MARKET' &&
+    (o.closePosition===true||o.closePosition==='true') &&
+    ['NEW','WORKING','PENDING'].includes(String(o.algoStatus||o.status||'').toUpperCase())
+  );
+  if(existing.length)
+    return {protected:false,submitted:false,
+      reason:'EXISTING_ACTIVE_STOP_REQUIRES_RECONCILIATION',
+      existingStopCount:existing.length};
   const params={algoType:'CONDITIONAL',symbol:stop.symbol,
     side:qty>0?'SELL':'BUY',type:'STOP_MARKET',
     triggerPrice:String(stop.triggerPrice),workingType:'MARK_PRICE',
