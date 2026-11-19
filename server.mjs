@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { prepareDemoProbe } from './development/demo-order-preparation.mjs';
 // Isolated read-only deployment check. This does not run the Setting2 strategy.
 const startedAt = Date.now();
 const server = createServer(async (req,res)=>{
@@ -15,6 +16,24 @@ const server = createServer(async (req,res)=>{
       const info=await response.json();
       return send(200,{connected:true,venue:'DEMO',publicMarketDataOnly:true,symbols:Array.isArray(info.symbols)?info.symbols.length:null});
     } catch {return send(503,{connected:false,error:'DEMO_CONNECTION_FAILED'});}
+  }
+  if(new URL(req.url,'http://localhost').pathname==='/demo-probe-preview'){
+    try {
+      const url=new URL(req.url,'http://localhost');
+      const symbol=url.searchParams.get('symbol')||'';
+      const side=url.searchParams.get('side')||'BUY';
+      if(!/^[A-Z0-9]{1,25}USDT$/.test(symbol) || !['BUY','SELL'].includes(side))
+        return send(400,{error:'INVALID_PREVIEW_PARAMETERS'});
+      const [infoResponse,priceResponse]=await Promise.all([
+        fetch('https://demo-fapi.binance.com/fapi/v1/exchangeInfo',{signal:AbortSignal.timeout(10000)}),
+        fetch('https://demo-fapi.binance.com/fapi/v1/ticker/price?symbol='+encodeURIComponent(symbol),{signal:AbortSignal.timeout(10000)})
+      ]);
+      if(!infoResponse.ok||!priceResponse.ok)throw Error('DEMO_PUBLIC_DATA_UNAVAILABLE');
+      const info=await infoResponse.json(),price=await priceResponse.json();
+      const exchangeSymbol=info.symbols.find(x=>x.symbol===symbol);
+      const preview=prepareDemoProbe({symbol,side,price:Number(price.price),exchangeSymbol});
+      return send(200,{...preview,publicMarketDataOnly:true,ordersPlaced:0});
+    }catch{return send(503,{error:'DEMO_PREVIEW_UNAVAILABLE',ordersPlaced:0});}
   }
   return send(404,{error:'NOT_FOUND'});
 });
