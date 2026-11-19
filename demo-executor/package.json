@@ -1,0 +1,16 @@
+{
+  "name": "ans-setting2-demo-readonly",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node read-only-server.mjs",
+    "test": "node --test *.test.mjs",
+    "demo:status": "node demo-account-status.mjs",
+    "demo:pnl": "node demo-pnl-report.mjs",
+    "demo:trade": "node demo-trade-cli.mjs",
+    "demo:preflight": "node demo-preflight.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

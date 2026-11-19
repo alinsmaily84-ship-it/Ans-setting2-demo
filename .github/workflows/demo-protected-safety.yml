@@ -1,0 +1,25 @@
+name: Demo protected execution safety checks
+on:
+  push:
+    branches: [setting2-demo-executor-prep]
+    paths:
+      - 'demo-executor/**'
+      - '.github/workflows/demo-protected-safety.yml'
+  workflow_dispatch:
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run Demo-only protection and failsafe tests
+        working-directory: demo-executor
+        run: node --test demo-unprotected-failsafe.test.mjs demo-order-preparation.test.mjs
+      - name: Validate protected entry and server syntax
+        working-directory: demo-executor
+        run: |
+          node --check demo-one-shot-entry.mjs
+          node --check demo-unprotected-failsafe.mjs
+          node --check read-only-server.mjs
