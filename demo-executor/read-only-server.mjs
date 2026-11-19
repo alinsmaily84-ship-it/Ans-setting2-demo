@@ -5,6 +5,7 @@ import {BinanceDemoClient} from './binance-demo-client.mjs';
 import {fetchDemoPrice,createPriceHistory} from './demo-price-feed.mjs';
 import {fetchDemoCandles} from './demo-candle-feed.mjs';
 import {fetchSetting2MarketInputs} from './setting2-market-inputs.mjs';
+import {setting2ScannerFrames} from './setting2-scanner-adapter.mjs';
 import {compareClampDirection} from './clamp-direction-shadow.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
@@ -86,7 +87,8 @@ const server=createServer(async(req,res)=>{
       const parsed=new URL(req.url,'http://localhost');
       const symbol=parsed.searchParams.get('symbol');
       const result=await fetchSetting2MarketInputs(symbol);
-      res.writeHead(200);res.end(JSON.stringify(result));
+      const adapted=setting2ScannerFrames(result);
+      res.writeHead(200);res.end(JSON.stringify({...adapted,observedAt:result.observedAt,originalSignalsComputed:false}));
     }catch(error){
       res.writeHead(503);res.end(JSON.stringify({error:'MARKET_INPUTS_UNAVAILABLE',detail:String(error?.message||error).slice(0,100)}));
     }
