@@ -1,6 +1,6 @@
 // Direct port of original Setting2 applyForecast. Read-only, no exchange orders.
 export function applySetting2Forecast(base, hourly, fourHour, price, scalper = false) {
-  const tfDir = (v: S) => v.side,
+  const tfDir = (v) => v.side,
     dirs = [base.side, hourly.side, fourHour.side],
     bull = dirs.filter((d) => d === "LONG").length,
     bear = dirs.filter((d) => d === "SHORT").length;
