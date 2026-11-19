@@ -4,10 +4,10 @@
 export const demoStrategy = Object.freeze({
   venue: "BINANCE_FUTURES_DEMO",
   capitalReferenceUsdt: 500,
-  probeNotionalUsdt: 7,
-  targetNotionalUsdt: 2000,
+  probeNotionalUsdt: 7, // fallback; actual minimum must be computed per symbol from Binance filters
+  targetNotionalUsdt: 1000,
   targetLeverage: 20,
-  concurrentPositions: 5,
+  concurrentPositions: 10,
   firstDecisionSeconds: 30,
   staleProbeReviewSeconds: 60,
   rankingWindowMinutes: 15,
