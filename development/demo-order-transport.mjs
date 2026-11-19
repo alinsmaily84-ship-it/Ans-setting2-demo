@@ -20,6 +20,22 @@ export function prepareSignedDemoRequest({kind,apiKey,apiSecret,params={},timest
   if(typeof apiKey!=='string'||!apiKey.trim()||typeof apiSecret!=='string'||!apiSecret.trim())
     throw new Error('DEMO_CREDENTIALS_MISSING');
   if(!Number.isSafeInteger(timestamp))throw new Error('DEMO_TIMESTAMP_INVALID');
+  // Permit only the exact order fields used by the Demo executor.
+  // Never allow a caller to smuggle alternate order types or arbitrary parameters.
+  const allowed=kind==='marketOrder'
+    ? new Set(['symbol','side','type','quantity','reduceOnly','newClientOrderId'])
+    : kind==='orderStatus'
+      ? new Set(['symbol','orderId'])
+      : new Set(['symbol']);
+  if(Object.keys(params).some(k=>!allowed.has(k)))
+    throw new Error('DEMO_PARAM_NOT_ALLOWED');
+  if(kind==='orderStatus' &&
+     (!/^[A-Z0-9]+USDT$/.test(params.symbol||'') ||
+      !/^[0-9]+$/.test(String(params.orderId||''))))
+    throw new Error('DEMO_ORDER_STATUS_INVALID');
+  if(kind==='openAlgoOrders' && params.symbol!==undefined &&
+     !/^[A-Z0-9]+USDT$/.test(params.symbol))
+    throw new Error('DEMO_SYMBOL_INVALID');
   const query=new URLSearchParams();
   for(const [k,v] of Object.entries(params)){
     if(!/^[a-zA-Z][a-zA-Z0-9]*$/.test(k)||v===undefined||v===null)throw new Error('DEMO_PARAM_INVALID');
@@ -29,7 +45,9 @@ export function prepareSignedDemoRequest({kind,apiKey,apiSecret,params={},timest
     if(params.type!=='MARKET'||!['BUY','SELL'].includes(params.side)||
        !/^[A-Z0-9]+USDT$/.test(params.symbol||'')||
        !(Number(params.quantity)>0)||
-       !Number.isFinite(Number(params.quantity)))
+       !Number.isFinite(Number(params.quantity)) ||
+       (params.reduceOnly!==undefined && params.reduceOnly!==true && params.reduceOnly!=='true') ||
+       (params.newClientOrderId!==undefined && !/^[A-Za-z0-9_-]{1,36}$/.test(params.newClientOrderId)))
       throw new Error('DEMO_MARKET_ORDER_INVALID');
   }
   query.set('timestamp',String(timestamp));
