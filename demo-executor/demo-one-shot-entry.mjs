@@ -43,9 +43,19 @@ export async function executeOneDemoProtectedProbe({
     clientOrderId,ordersPlaced:'unknown',riskReviewRequired:true};
   }
  }
- if(!submitted?.orderId)
-  return {action:'ENTRY_ACCEPTANCE_UNCONFIRMED',clientOrderId,ordersPlaced:'unknown',
-   exchangeProtectionConfirmed:false,riskReviewRequired:true};
+ if(!submitted?.orderId){
+  // The exchange may have accepted the order despite an incomplete response.
+  // Reconcile first; never issue a second entry as a recovery attempt.
+  let confirmed=null;
+  try{
+   confirmed=await sendExplicitDemoRequest({kind:'orderStatus',apiKey,apiSecret,fetchImpl,
+    params:{symbol,origClientOrderId:clientOrderId}});
+  }catch{}
+  if(confirmed?.orderId)submitted=confirmed;
+  else return {action:'ENTRY_ACCEPTANCE_UNCONFIRMED',clientOrderId,ordersPlaced:'unknown',
+   exchangeProtectionConfirmed:false,riskReviewRequired:true,
+   reason:'EXCHANGE_ORDER_RECONCILIATION_REQUIRED'};
+ }
  let orderStatus,after;
  try{
   orderStatus=await sendExplicitDemoRequest({kind:'orderStatus',apiKey,apiSecret,fetchImpl,
