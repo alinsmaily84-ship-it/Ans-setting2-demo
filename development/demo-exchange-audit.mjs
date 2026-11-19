@@ -28,7 +28,13 @@ export function auditDemoPositionProtection({symbol, position, algoOrders, expec
     Number.isFinite(Number(o.triggerPrice||o.stopPrice)) &&
     Number(o.triggerPrice||o.stopPrice)>0
   );
-  const matched=active.find(o=>Math.abs(Number(o.triggerPrice||o.stopPrice)-expectedStopTrigger)<=Math.max(1e-8,expectedStopTrigger*1e-8));
+  // A more protective stop (higher for LONG, lower for SHORT) is acceptable.
+  // Reject looser stops; tolerate only exchange floating-point representation noise.
+  const tolerance=Math.max(1e-8,expectedStopTrigger*1e-8);
+  const matched=active.find(o=>{
+    const trigger=Number(o.triggerPrice||o.stopPrice);
+    return expectedSide==='SELL' ? trigger>=expectedStopTrigger-tolerance : trigger<=expectedStopTrigger+tolerance;
+  });
   return {
     symbol,positionOpen:true,protected:Boolean(matched),
     reason:matched?'CONFIRMED_ACTIVE_STOP':'ACTIVE_STOP_NOT_CONFIRMED',
