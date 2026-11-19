@@ -2,6 +2,7 @@
 // Not connected to the running service or any scheduler.
 import {sendExplicitDemoRequest} from './demo-order-transport.mjs';
 import {confirmReconciledDemoProtection} from './demo-protection-handoff.mjs';
+import {fetchDemoAccountSnapshot} from './demo-account-reader.mjs';
 
 export async function submitAndVerifyDemoPrimaryStop({
   handoff,position,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization=false
@@ -38,14 +39,21 @@ export async function submitAndVerifyDemoPrimaryStop({
   }
   if(!accepted || !accepted.algoId)
     return {protected:false,submitted:true,reason:'ALGO_ACCEPTANCE_NOT_CONFIRMED'};
-  let algoOrders;
+  // Read a fresh exchange position AND active stops after the POST.
+  // The pre-submit position snapshot cannot prove that protection still applies.
+  let snapshot;
   try {
-    algoOrders=await sendExplicitDemoRequest({
-      kind:'openAlgoOrders',apiKey,apiSecret,params:{symbol:stop.symbol},fetchImpl
-    });
+    snapshot=await fetchDemoAccountSnapshot({apiKey,apiSecret,fetchImpl});
   } catch {
-    return {protected:false,submitted:true,reason:'ACTIVE_STOP_READBACK_FAILED',algoId:String(accepted.algoId)};
+    return {protected:false,submitted:true,reason:'POST_SUBMISSION_ACCOUNT_READBACK_FAILED',algoId:String(accepted.algoId)};
   }
+  const matchingPositions=snapshot.positions.filter(p=>
+    p.symbol===stop.symbol && (p.positionSide||'BOTH')===positionSide
+  );
+  if(matchingPositions.length!==1)
+    return {protected:false,submitted:true,reason:'FRESH_POSITION_NOT_UNIQUE',algoId:String(accepted.algoId)};
+  const freshPosition=matchingPositions[0];
+  const algoOrders=snapshot.algoOrders;
   // Only the just-accepted Algo ID can confirm this submission. A stale stop
   // for the same symbol must not be mistaken for the newly submitted stop.
   const acceptedId=String(accepted.algoId);
@@ -55,7 +63,7 @@ export async function submitAndVerifyDemoPrimaryStop({
   if(matchingOrders.length!==1)
     return {protected:false,submitted:true,reason:'SUBMITTED_ALGO_NOT_ACTIVE',algoId:acceptedId};
   const verified=confirmReconciledDemoProtection({
-    handoff,position,algoOrders:matchingOrders
+    handoff,position:freshPosition,algoOrders:matchingOrders
   });
   return {protected:verified.protected===true,submitted:true,
     reason:verified.reason,algoId:acceptedId,
