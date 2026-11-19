@@ -42,7 +42,11 @@ export async function executeOneDemoProtectedProbe({
    params:{symbol,orderId:String(submitted.orderId)}});
   after=await fetchDemoAccountSnapshot({apiKey,apiSecret,fetchImpl});
  }catch{
-  return {action:'ENTRY_FILL_RECONCILIATION_REQUIRED',clientOrderId,ordersPlaced:1,exchangeProtectionConfirmed:false};
+  // The entry may already be filled: attempt exchange reconciliation and
+  // a guarded reduce-only exit rather than leaving a known unprotected probe.
+  const failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+  return {action:failsafe.action==='FLATTENED_AND_VERIFIED'?'DEMO_PROBE_SAFELY_FLATTENED':'ENTRY_FILL_RECONCILIATION_REQUIRED',
+    clientOrderId,ordersPlaced:1,exchangeProtectionConfirmed:false,failsafe,riskReviewRequired:failsafe.action!=='FLATTENED_AND_VERIFIED'};
  }
  try{
   const protection=await protectConfirmedDemoFill({
