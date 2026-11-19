@@ -1,0 +1,51 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {movementSpeed15m,rankBySpeed15m,demoStrategy} from './demo-strategy-contract.mjs';
+import {selectDemoCandidates} from './demo-analyzer-adapter.mjs';
+import {prepareDemoMarketOrder,prepareDemoProbe} from './demo-order-preparation.mjs';
+import {recordConfirmedProbe,planProbeReview} from './demo-stage-planner.mjs';
+import {planStopAfterFill,profitFloorFromPeak} from './demo-protection-planner.mjs';
+
+const sym={symbol:'XRPUSDT',status:'TRADING',contractType:'PERPETUAL',quoteAsset:'USDT',filters:[
+ {filterType:'MARKET_LOT_SIZE',stepSize:'0.1',minQty:'0.1',maxQty:'100000'},
+ {filterType:'MIN_NOTIONAL',notional:'5'}
+]};
+test('15-minute speed drives ordering',()=>{
+ assert.equal(movementSpeed15m(110,100),10/15);
+ assert.equal(rankBySpeed15m([{symbol:'A',closeNow:101,close15mAgo:100},{symbol:'B',closeNow:110,close15mAgo:100}])[0].symbol,'B');
+});
+test('analyzer adapter checks fresh results and ignores duplicate symbols',()=>{
+ const now=Date.parse('2026-11-19T12:00:00Z');
+ const item={symbol:'XRPUSDT',side:'LONG',price:2,m1:1,m5:2,m15:3,m60:4,speed15m:0.2};
+ const result=selectDemoCandidates({updatedAt:new Date(now).toISOString(),ranked:[item,item]},{nowMs:now});
+ assert.equal(result.candidates.length,1);
+ assert.equal(result.executionEnabled,false);
+ assert.throws(()=>selectDemoCandidates({updatedAt:new Date(now-100000).toISOString(),ranked:[item]},{nowMs:now}),/STALE/);
+});
+test('quantity rounded down and min notional checked',()=>{
+ const p=prepareDemoProbe({symbol:'XRPUSDT',side:'BUY',price:2.03,exchangeSymbol:sym});
+ assert.equal(p.quantity,'3.4');
+ assert.equal(p.valid,true);
+ const small=prepareDemoMarketOrder({symbol:'XRPUSDT',side:'BUY',desiredNotionalUsdt:1,price:2.03,exchangeSymbol:sym});
+ assert.equal(small.valid,false);
+ assert.ok(small.reasons.includes('BELOW_MIN_NOTIONAL'));
+});
+test('confirmed probe produces 30-second review and 60-second close proposal',()=>{
+ const p=recordConfirmedProbe({symbol:'XRPUSDT',side:'LONG',filledNotionalUsdt:7,filledAtMs:100000,orderId:'123'});
+ const base={positionSide:'LONG',marketDirection:'SHORT',currentNotionalUsdt:7,targetNotionalUsdt:2000,directionObservedAtMs:130000,addEligible:true};
+ assert.equal(planProbeReview(p,{...base,nowMs:129000}).action,'NOT_DUE');
+ const rev=planProbeReview(p,{...base,nowMs:130000});
+ assert.equal(rev.action,'REVERSE_THEN_ADD_PROPOSAL');
+ assert.equal(rev.remainingNotionalUsdt,1993);
+ const recheck=planProbeReview(p,{...base,nowMs:130000,addEligible:false});
+ assert.equal(recheck.action,'RECHECK_PENDING');
+ assert.equal(planProbeReview(recheck.nextState,{...base,nowMs:160000,directionObservedAtMs:160000,addEligible:false}).action,'CLOSE_PROBE_PROPOSAL');
+});
+test('post-fill protection is planning only',()=>{
+ const p=planStopAfterFill({symbol:'XRPUSDT',positionQty:100,entryPrice:2,markPrice:2,tickSize:0.001});
+ assert.equal(p.triggerPrice,1.95);
+ assert.equal(p.executionEnabled,false);
+ assert.equal(profitFloorFromPeak(0.09).armed,false);
+ assert.equal(profitFloorFromPeak(0.10).armed,true);
+ assert.equal(demoStrategy.liveEnabled,false);
+});
