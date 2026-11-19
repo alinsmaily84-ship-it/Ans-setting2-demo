@@ -13,6 +13,14 @@ export function prepareDemoPrimaryStopSubmission({handoff,position,apiKey,apiSec
      qty!==handoff.fill.positionQty ||
      stop.side!==(qty>0?'SELL':'BUY'))
     return {ready:false,reason:'POSITION_RECONCILIATION_REQUIRED',ordersPlaced:0};
+  // A position add/reversal changes the weighted entry and invalidates the
+  // stop trigger calculated from the previous exchange snapshot.
+  const exchangeEntry=Number(position.entryPrice);
+  if(!Number.isFinite(exchangeEntry) || exchangeEntry<=0 ||
+     !Number.isFinite(handoff.fill.positionEntryPrice) ||
+     Math.abs(exchangeEntry-handoff.fill.positionEntryPrice)>
+       Math.max(1e-8,handoff.fill.positionEntryPrice*1e-8))
+    return {ready:false,reason:'ENTRY_PRICE_CHANGED_REPLAN_STOP',ordersPlaced:0};
   const positionSide=position.positionSide||'BOTH';
   if(!['BOTH','LONG','SHORT'].includes(positionSide) ||
      (positionSide==='LONG'&&qty<0) ||
