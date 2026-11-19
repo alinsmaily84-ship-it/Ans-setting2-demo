@@ -50,6 +50,7 @@ export async function executeOneDemoProtectedProbe({
    exchangeProtectionConfirmed:protection.exchangeProtectionConfirmed===true};
  }catch{
   return {action:'DEMO_PROBE_NEEDS_PROTECTION',entryOrderId:String(submitted.orderId),
-   ordersPlaced:1,reason:'PROTECTION_FLOW_FAILED_RECONCILE_IMMEDIATELY',exchangeProtectionConfirmed:false};
+   ordersPlaced:1,reason:'PROTECTION_FLOW_FAILED_RECONCILE_IMMEDIATELY',
+   exchangeProtectionConfirmed:false,riskReviewRequired:true};
  }
 }
