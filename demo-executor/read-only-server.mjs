@@ -7,6 +7,7 @@ import {fetchDemoCandles} from './demo-candle-feed.mjs';
 import {fetchSetting2MarketInputs} from './setting2-market-inputs.mjs';
 import {setting2ScannerFrames} from './setting2-scanner-adapter.mjs';
 import {calcSetting2Indicators} from './setting2-original-indicators.mjs';
+import {applySetting2Forecast} from './setting2-original-forecast.mjs';
 import {compareClampDirection} from './clamp-direction-shadow.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
@@ -83,6 +84,22 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
+  if(req.url?.startsWith('/setting2-standard-forecast?')) {
+    try {
+      const parsed=new URL(req.url,'http://localhost');
+      const symbol=parsed.searchParams.get('symbol');
+      const market=await fetchSetting2MarketInputs(symbol);
+      const adapted=setting2ScannerFrames(market);
+      const indicators={};
+      for(const tf of ['15m','1h','4h'])indicators[tf]=calcSetting2Indicators(adapted.frames[tf],tf);
+      if(!indicators['15m']||!indicators['1h']||!indicators['4h'])throw Error('INSUFFICIENT_COMPLETED_CANDLES');
+      const signal=applySetting2Forecast(indicators['15m'],indicators['1h'],indicators['4h'],indicators['15m'].price);
+      res.writeHead(200);res.end(JSON.stringify({symbol,signal,forecastType:'ORIGINAL_STANDARD_FORECAST_ONLY',activeStrategyMode:'UNVERIFIED',automatedTrading:false}));
+    }catch(error){
+      res.writeHead(503);res.end(JSON.stringify({error:'STANDARD_FORECAST_UNAVAILABLE',detail:String(error?.message||error).slice(0,100)}));
+    }
+    return;
+  }
   if(req.url?.startsWith('/setting2-indicators?')) {
     try {
       const parsed=new URL(req.url,'http://localhost');
