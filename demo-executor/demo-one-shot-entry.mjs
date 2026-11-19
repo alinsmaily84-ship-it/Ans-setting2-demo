@@ -43,7 +43,7 @@ export async function executeOneDemoProtectedProbe({
    // flatten; never blindly resubmit the entry after an ambiguous response.
    let failsafe;
    try{
-    failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+    failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,beforePositions:before.positions,explicitDemoAuthorization:true});
    }catch(error){
     failsafe={action:'RECONCILIATION_FAILED',reason:String(error?.message||error).slice(0,100)};
    }
@@ -73,7 +73,7 @@ export async function executeOneDemoProtectedProbe({
  }catch{
   // The entry may already be filled: attempt exchange reconciliation and
   // a guarded reduce-only exit rather than leaving a known unprotected probe.
-  const failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+  const failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,beforePositions:before.positions,explicitDemoAuthorization:true});
   return {action:failsafe.action==='FLATTENED_AND_VERIFIED'?'DEMO_PROBE_SAFELY_FLATTENED':'ENTRY_FILL_RECONCILIATION_REQUIRED',
     clientOrderId,ordersPlaced:1,exchangeProtectionConfirmed:false,failsafe,riskReviewRequired:failsafe.action!=='FLATTENED_AND_VERIFIED'};
  }
@@ -83,13 +83,13 @@ export async function executeOneDemoProtectedProbe({
    beforePositions:before.positions,afterPositions:after.positions,
    stepSize,markPrice,tickSize,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true
   });
-  const failsafe=protection.exchangeProtectionConfirmed===true?null:await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+  const failsafe=protection.exchangeProtectionConfirmed===true?null:await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,beforePositions:before.positions,explicitDemoAuthorization:true});
   return {...protection,failsafe,
    action:protection.exchangeProtectionConfirmed===true?'DEMO_PROBE_PROTECTED':failsafe?.action==='FLATTENED_AND_VERIFIED'?'DEMO_PROBE_SAFELY_FLATTENED':'DEMO_PROBE_NEEDS_PROTECTION',
    entryOrderId:String(submitted.orderId),clientOrderId,ordersPlaced:1,
    exchangeProtectionConfirmed:protection.exchangeProtectionConfirmed===true};
  }catch{
-  const failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+  const failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,beforePositions:before.positions,explicitDemoAuthorization:true});
   return {action:failsafe.action==='FLATTENED_AND_VERIFIED'?'DEMO_PROBE_SAFELY_FLATTENED':'DEMO_PROBE_NEEDS_PROTECTION',failsafe,entryOrderId:String(submitted.orderId),clientOrderId,
    ordersPlaced:1,reason:'PROTECTION_FLOW_FAILED_RECONCILE_IMMEDIATELY',
    exchangeProtectionConfirmed:false,riskReviewRequired:true};
