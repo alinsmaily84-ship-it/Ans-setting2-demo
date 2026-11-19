@@ -24,19 +24,23 @@ export function prepareDemoMarketOrder({symbol, side, desiredNotionalUsdt, price
   if (!lot) throw new Error("LOT_FILTER_MISSING");
   const step=Number(lot.stepSize), digits=decimalPlaces(lot.stepSize);
   const minQty=Number(lot.minQty),maxQty=Number(lot.maxQty);
-  const minNotional=Number(filters.find(x=>x.filterType==="MIN_NOTIONAL")?.notional ?? 0);
+  const notionalFilter=filters.find(x=>x.filterType==="MIN_NOTIONAL"||x.filterType==="NOTIONAL");
+  const minNotional=Number(notionalFilter?.notional??notionalFilter?.minNotional??0);
   if (![step,minQty,maxQty,minNotional].every(Number.isFinite) ||
       step<=0 || minQty<0 || maxQty<=0 || minQty>maxQty || minNotional<0)
     throw new Error("EXCHANGE_FILTER_INVALID");
   const raw=desiredNotionalUsdt/price;
   // Exchange quantity must be rounded DOWN, never rounded up beyond the requested notional.
-  const units=Math.floor(raw/step + 1e-10);
+  const ratio=raw/step;
+  const nearest=Math.round(ratio);
+  // Floating-point multiplication/division must not erase a valid minimum step.
+  const units=Math.abs(ratio-nearest)<1e-8 ? nearest : Math.floor(ratio);
   const quantity=Number((units*step).toFixed(digits));
   const actualNotionalUsdt=quantity*price;
   const reasons=[];
   if (!(quantity>0) || quantity<minQty) reasons.push("BELOW_MIN_QTY");
   if (quantity>maxQty) reasons.push("ABOVE_MAX_QTY");
-  if (actualNotionalUsdt<minNotional) reasons.push("BELOW_MIN_NOTIONAL");
+  if (actualNotionalUsdt+1e-9<minNotional) reasons.push("BELOW_MIN_NOTIONAL");
   if (actualNotionalUsdt>desiredNotionalUsdt+1e-7) reasons.push("EXCEEDS_REQUESTED_NOTIONAL");
   return Object.freeze({
     venue:"BINANCE_FUTURES_DEMO",symbol,side,quantity:quantity.toFixed(digits),
@@ -50,7 +54,8 @@ export function prepareDemoProbe(input) {
   const filters=exchangeSymbol?.filters||[];
   const lot=filters.find(x=>x.filterType==='MARKET_LOT_SIZE')||filters.find(x=>x.filterType==='LOT_SIZE');
   const step=Number(lot?.stepSize),minQty=Number(lot?.minQty);
-  const notional=Number(filters.find(x=>x.filterType==='MIN_NOTIONAL')?.notional??0);
+  const notionalFilter=filters.find(x=>x.filterType==='MIN_NOTIONAL'||x.filterType==='NOTIONAL');
+  const notional=Number(notionalFilter?.notional??notionalFilter?.minNotional??0);
   if(![step,minQty,notional,price].every(Number.isFinite)||step<=0||minQty<0||notional<0||price<=0)
     throw Error('DEMO_MINIMUM_METADATA_INVALID');
   const minUnits=Math.max(Math.ceil((notional/price)/step-1e-10),Math.ceil(minQty/step-1e-10),1);
