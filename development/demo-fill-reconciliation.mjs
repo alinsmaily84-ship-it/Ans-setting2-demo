@@ -22,11 +22,14 @@ export function reconcileDemoMarketFill({symbol,side,requestedQuantity,submitted
   const position=matching[0],qty=Number(position.positionAmt);
   if((side==='BUY' && qty<=0)||(side==='SELL' && qty>=0))
     return {confirmed:false,reason:'POSITION_DIRECTION_MISMATCH',ordersPlaced:0};
+  const entryPrice=Number(position.entryPrice);
+  if(!Number.isFinite(entryPrice) || entryPrice<=0)
+    return {confirmed:false,reason:'POSITION_ENTRY_PRICE_INVALID',ordersPlaced:0};
   // Position snapshots can include existing exposure; never assume this fill
   // was the sole contributor without separate before/after reconciliation.
   return {confirmed:true,reason:'FILL_AND_DIRECTION_OBSERVED',
     symbol,orderId,executedQty:executed,avgPrice,
-    positionQty:qty,positionEntryPrice:Number(position.entryPrice),
+    positionQty:qty,positionEntryPrice:entryPrice,
     requiresPositionDeltaReconciliation:true,
     exchangeProtectionConfirmed:false,ordersPlaced:0};
 }
