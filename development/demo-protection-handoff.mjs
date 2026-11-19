@@ -42,7 +42,7 @@ export function confirmReconciledDemoProtection({handoff,position,algoOrders}) {
      Number(position.positionAmt)!==handoff.fill.positionQty)
     return {protected:false,reason:'POSITION_CHANGED_SINCE_STOP_PLAN'};
   const primary=handoff.protection.primary;
-  const expectedStopTrigger=Number(primary.order?.stopPrice ?? primary.order?.triggerPrice);
+  const expectedStopTrigger=Number(primary.triggerPrice);
   if(!Number.isFinite(expectedStopTrigger) || expectedStopTrigger<=0)
     return {protected:false,reason:'STOP_TRIGGER_INVALID'};
   const expectedStopSide=handoff.fill.positionQty>0?'SELL':'BUY';
