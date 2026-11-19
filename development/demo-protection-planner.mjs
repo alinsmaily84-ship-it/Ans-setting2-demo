@@ -9,7 +9,8 @@ export function planStopAfterFill({symbol, positionQty, entryPrice, markPrice, t
     throw new Error("STOP_INPUT_INVALID");
   const long=positionQty>0;
   const raw=entryPrice-(long?1:-1)*maxLossUsdt/Math.abs(positionQty);
-  const ticks=long?Math.floor(raw/tickSize):Math.ceil(raw/tickSize);
+  // Round toward entry to avoid increasing the planned loss beyond the budget.
+  const ticks=long?Math.ceil(raw/tickSize - 1e-10):Math.floor(raw/tickSize + 1e-10);
   const triggerPrice=Number((ticks*tickSize).toPrecision(14));
   if (!(triggerPrice>0) || (long?triggerPrice>=markPrice:triggerPrice<=markPrice))
     return {valid:false,reason:"STOP_TRIGGER_ALREADY_CROSSED",requiresImmediateRiskReview:true,executionEnabled:false};
