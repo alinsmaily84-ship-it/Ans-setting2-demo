@@ -5,6 +5,14 @@ import {BinanceDemoClient} from './binance-demo-client.mjs';
 import {fetchDemoPrice} from './demo-price-feed.mjs';
 import {executeOneDemoProtectedProbe} from './demo-one-shot-entry.mjs';
 
+async function fetchDemoMarkPrice(symbol){
+ const response=await fetch('https://demo-fapi.binance.com/fapi/v1/premiumIndex?symbol='+encodeURIComponent(symbol),{signal:AbortSignal.timeout(8000),redirect:'error'});
+ if(!response.ok)throw Error('DEMO_MARK_PRICE_HTTP_'+response.status);
+ const data=await response.json();
+ if(data.symbol!==symbol)throw Error('DEMO_MARK_PRICE_SYMBOL_MISMATCH');
+ return data;
+}
+
 const [symbol,side]=process.argv.slice(2);
 if(!/^[A-Z0-9]+USDT$/.test(symbol||'')||!['BUY','SELL'].includes(side)){
  console.error(JSON.stringify({ok:false,reason:'USAGE: node demo-protected-probe-cli.mjs SYMBOLUSDT BUY|SELL'}));
@@ -19,7 +27,7 @@ if(!/^[A-Z0-9]+USDT$/.test(symbol||'')||!['BUY','SELL'].includes(side)){
   const [exchange,ticker,mark]=await Promise.all([
    client.exchangeInfo(),
    fetchDemoPrice(symbol),
-   client.request('GET','/fapi/v1/premiumIndex',{symbol},false)
+   fetchDemoMarkPrice(symbol)
   ]);
   const exchangeSymbol=exchange.symbols?.find(s=>s.symbol===symbol);
   const price=Number(ticker.price),markPrice=Number(mark.markPrice);
