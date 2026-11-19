@@ -4,16 +4,16 @@
 import {inspectDemoProtection} from './demo-protection-inspector.mjs';
 
 const origin='https://demo-fapi.binance.com';
-async function publicJson(path){
-  const r=await fetch(origin+path,{method:'GET',redirect:'error',signal:AbortSignal.timeout(10000)});
+async function publicJson(path,fetchImpl){
+  const r=await fetchImpl(origin+path,{method:'GET',redirect:'error',signal:AbortSignal.timeout(10000)});
   if(!r.ok)throw new Error('DEMO_MARKET_READ_FAILED_'+r.status);
   return r.json();
 }
 
 export async function runDemoInspection({apiKey,apiSecret,fetchImpl=fetch,marketInfo,nowMs=Date.now()}={}){
   if(!apiKey||!apiSecret)throw new Error('DEMO_CREDENTIALS_MISSING');
-  const exchangeInfo=marketInfo?.exchangeInfo ?? await publicJson('/fapi/v1/exchangeInfo');
-  const marks=marketInfo?.marks ?? await publicJson('/fapi/v1/premiumIndex');
+  const exchangeInfo=marketInfo?.exchangeInfo ?? await publicJson('/fapi/v1/exchangeInfo',fetchImpl);
+  const marks=marketInfo?.marks ?? await publicJson('/fapi/v1/premiumIndex',fetchImpl);
   if(!Array.isArray(exchangeInfo.symbols)||!Array.isArray(marks))
     throw new Error('DEMO_MARKET_RESPONSE_INVALID');
   const bySymbol=new Map(marks.map(x=>[x.symbol,Number(x.markPrice)]));
