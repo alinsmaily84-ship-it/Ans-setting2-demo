@@ -39,8 +39,17 @@ export async function executeOneDemoProtectedProbe({
     params:{symbol,origClientOrderId:clientOrderId}});
    if(status?.orderId)submitted=status;
   }catch{
-   return {action:'ENTRY_OUTCOME_UNKNOWN',reason:'RECONCILE_EXCHANGE_BEFORE_RETRY',
-    clientOrderId,ordersPlaced:'unknown',riskReviewRequired:true};
+   // A timed-out entry can already be open. Attempt a guarded exchange-side
+   // flatten; never blindly resubmit the entry after an ambiguous response.
+   let failsafe;
+   try{
+    failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+   }catch(error){
+    failsafe={action:'RECONCILIATION_FAILED',reason:String(error?.message||error).slice(0,100)};
+   }
+   return {action:failsafe.action==='FLATTENED_AND_VERIFIED'?'DEMO_PROBE_SAFELY_FLATTENED':'ENTRY_OUTCOME_UNKNOWN',
+    reason:'RECONCILE_EXCHANGE_BEFORE_RETRY',clientOrderId,ordersPlaced:'unknown',
+    exchangeProtectionConfirmed:false,failsafe,riskReviewRequired:failsafe.action!=='FLATTENED_AND_VERIFIED'};
   }
  }
  if(!submitted?.orderId){
