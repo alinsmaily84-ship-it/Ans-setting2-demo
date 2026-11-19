@@ -49,3 +49,27 @@ export function prepareConfirmedFillProtection({symbol,positionQty,entryPrice,ma
     note:'Submit and verify the primary exchange stop first; SL2 and SL3 require separate failure handling.'
   };
 }
+
+
+// The 60-second stale-probe rule closes only the confirmed probe, not another position.
+// A caller must re-read the Binance Demo position immediately before submitting this proposal.
+export function prepareStaleProbeClose({probe,review,exchangePosition}) {
+  const decision=planProbeReview(probe,review);
+  if (decision.action!=='CLOSE_PROBE_PROPOSAL')
+    return {action:decision.action,executionEnabled:false,ordersPlaced:0};
+  const qty=Number(exchangePosition?.positionAmt);
+  const side=qty>0?'SELL':'BUY';
+  const matches=exchangePosition?.symbol===probe.symbol &&
+    (!exchangePosition.positionSide || exchangePosition.positionSide==='BOTH') &&
+    Number.isFinite(qty) && qty!==0 &&
+    (qty>0?'LONG':'SHORT')===probe.initialSide &&
+    Math.abs(Number(review.currentNotionalUsdt)-Number(probe.filledNotionalUsdt))<=Math.max(0.1,probe.filledNotionalUsdt*0.03);
+  if (!matches) return {action:'CLOSE_REQUIRES_POSITION_RECONCILIATION',
+    executionEnabled:false,ordersPlaced:0};
+  return {
+    action:'CLOSE_PROBE_ORDER_PREPARED',venue:demoStrategy.venue,
+    order:{symbol:probe.symbol,side,type:'MARKET',quantity:String(Math.abs(qty)),reduceOnly:true},
+    executionEnabled:false,ordersPlaced:0,
+    note:'Proposal only. Reconfirm exchange position and quantity before any actual order.'
+  };
+}
