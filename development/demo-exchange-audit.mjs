@@ -24,6 +24,7 @@ export function auditDemoPositionProtection({symbol, position, algoOrders, expec
     ['NEW','WORKING','PENDING'].includes(String(o.algoStatus||o.status||'').toUpperCase()) &&
     (o.orderType||o.type)==='STOP_MARKET' &&
     (o.closePosition===true||o.closePosition==='true') &&
+    (o.workingType==='MARK_PRICE') &&
     Number.isFinite(Number(o.triggerPrice||o.stopPrice)) &&
     Number(o.triggerPrice||o.stopPrice)>0
   );
