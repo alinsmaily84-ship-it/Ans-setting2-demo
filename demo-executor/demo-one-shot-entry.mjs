@@ -4,6 +4,7 @@ import {fetchDemoAccountSnapshot} from './demo-account-reader.mjs';
 import {prepareDemoProbe} from './demo-order-preparation.mjs';
 import {sendExplicitDemoRequest} from './demo-order-transport.mjs';
 import {protectConfirmedDemoFill} from './demo-confirmed-fill-stop-flow.mjs';
+import {flattenUnprotectedDemoProbe} from './demo-unprotected-failsafe.mjs';
 
 export async function executeOneDemoProtectedProbe({
  symbol,side,price,exchangeSymbol,markPrice,tickSize,stepSize,
@@ -48,12 +49,14 @@ export async function executeOneDemoProtectedProbe({
    beforePositions:before.positions,afterPositions:after.positions,
    stepSize,markPrice,tickSize,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true
   });
-  return {...protection,
-   action:protection.exchangeProtectionConfirmed===true?'DEMO_PROBE_PROTECTED':'DEMO_PROBE_NEEDS_PROTECTION',
+  const failsafe=protection.exchangeProtectionConfirmed===true?null:await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+  return {...protection,failsafe,
+   action:protection.exchangeProtectionConfirmed===true?'DEMO_PROBE_PROTECTED':failsafe?.action==='FLATTENED_AND_VERIFIED'?'DEMO_PROBE_SAFELY_FLATTENED':'DEMO_PROBE_NEEDS_PROTECTION',
    entryOrderId:String(submitted.orderId),clientOrderId,ordersPlaced:1,
    exchangeProtectionConfirmed:protection.exchangeProtectionConfirmed===true};
  }catch{
-  return {action:'DEMO_PROBE_NEEDS_PROTECTION',entryOrderId:String(submitted.orderId),clientOrderId,
+  const failsafe=await flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true});
+  return {action:failsafe.action==='FLATTENED_AND_VERIFIED'?'DEMO_PROBE_SAFELY_FLATTENED':'DEMO_PROBE_NEEDS_PROTECTION',failsafe,entryOrderId:String(submitted.orderId),clientOrderId,
    ordersPlaced:1,reason:'PROTECTION_FLOW_FAILED_RECONCILE_IMMEDIATELY',
    exchangeProtectionConfirmed:false,riskReviewRequired:true};
  }
