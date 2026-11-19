@@ -18,9 +18,9 @@ export function recordConfirmedProbe({symbol, side, filledNotionalUsdt, filledAt
 
 // Only generates a proposed action. It never flips or adds a position itself.
 // The direction and market data must be fresh and independently observed at review time.
-export function planProbeReview(probe, {nowMs, currentSide, currentNotionalUsdt, targetNotionalUsdt, directionObservedAtMs, addEligible}) {
+export function planProbeReview(probe, {nowMs, positionSide, marketDirection, currentNotionalUsdt, targetNotionalUsdt, directionObservedAtMs, addEligible}) {
   if (!probe || !["PROBE_CONFIRMED","RECHECK_PENDING"].includes(probe.phase) ||
-      !finiteTime(nowMs) || !validSide(currentSide) ||
+      !finiteTime(nowMs) || !validSide(positionSide) || !validSide(marketDirection) ||
       !validPositive(currentNotionalUsdt) || !validPositive(targetNotionalUsdt) ||
       !finiteTime(directionObservedAtMs) || typeof addEligible !== "boolean")
     throw new Error("REVIEW_INPUT_INVALID");
@@ -38,17 +38,15 @@ export function planProbeReview(probe, {nowMs, currentSide, currentNotionalUsdt,
   }
   const remainingUsdt=Math.max(0,targetNotionalUsdt-currentNotionalUsdt);
   if (remainingUsdt === 0) return {action:"TARGET_ALREADY_MET",executable:false};
-  if (currentSide !== probe.initialSide)
+  if (positionSide !== probe.initialSide)
     return {action:"POSITION_SIDE_CHANGED",executable:false};
-  if (currentSide !== (probe.initialSide === "LONG" ? "LONG" : "SHORT"))
-    return {action:"POSITION_MISMATCH",executable:false};
   return {
-    action:currentSide===probe.initialSide?"ADD_OR_REVERSE_PROPOSAL":"REVIEW_POSITION",
+    action:marketDirection===positionSide?"ADD_PROPOSAL":"REVERSE_THEN_ADD_PROPOSAL",
     executable:false,
-    desiredSide:currentSide,
+    desiredSide:marketDirection,
     remainingNotionalUsdt:remainingUsdt,
     // Direction reversal requires explicit position accounting and protective order replacement.
-    reversalNeeded:false,
+    reversalNeeded:marketDirection!==positionSide,
     note:"Planner only; live direction and reversal execution must be resolved by the approved engine."
   };
 }
