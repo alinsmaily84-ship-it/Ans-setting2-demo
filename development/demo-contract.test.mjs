@@ -161,3 +161,12 @@ test('stop price rounding does not increase planned loss beyond five USDT',()=>{
  assert.equal(short.valid,true);
  assert.ok((short.triggerPrice-2)*100<=5+1e-7);
 });
+
+test('hedge-mode position cannot be certified by an unverified close-all stop',async()=>{
+ const fetchImpl=async url=>({ok:true,json:async()=>url.includes('positionRisk')
+   ?[{symbol:'XRPUSDT',positionAmt:'100',positionSide:'LONG',entryPrice:'2'}]
+   :[{symbol:'XRPUSDT',side:'SELL',positionSide:'LONG',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95'}]});
+ const report=await inspectDemoProtection({apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl,nowMs:1700000000000,marketBySymbol:{XRPUSDT:{markPrice:2,tickSize:0.001}}});
+ assert.equal(report.allOpenPositionsProtected,false);
+ assert.equal(report.reports[0].reason,'HEDGE_MODE_STOP_REQUIRES_VERIFIED_EXCHANGE_SUPPORT');
+});
