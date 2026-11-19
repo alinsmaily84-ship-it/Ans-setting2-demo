@@ -18,7 +18,7 @@ export async function executeOneDemoProtectedProbe({
   return {action:'NOT_SUBMITTED',reason:'MARKET_REFERENCE_MISSING',ordersPlaced:0};
  const before=await fetchDemoAccountSnapshot({apiKey,apiSecret,fetchImpl});
  const exposure=before.positions.filter(p=>Number(p.positionAmt)!==0);
- if(exposure.some(p=>!Number.isFinite(Number(p.positionAmt))))
+ if(before.positions.some(p=>p.positionAmt===null || p.positionAmt===undefined || !Number.isFinite(Number(p.positionAmt))))
   return {action:'NOT_SUBMITTED',reason:'POSITION_SNAPSHOT_INVALID',ordersPlaced:0};
  if(exposure.length>=5 || exposure.some(p=>p.symbol===symbol))
   return {action:'NOT_SUBMITTED',reason:'EXPOSURE_REQUIRES_RECONCILIATION',ordersPlaced:0};
@@ -53,7 +53,7 @@ export async function executeOneDemoProtectedProbe({
    entryOrderId:String(submitted.orderId),clientOrderId,ordersPlaced:1,
    exchangeProtectionConfirmed:protection.exchangeProtectionConfirmed===true};
  }catch{
-  return {action:'DEMO_PROBE_NEEDS_PROTECTION',entryOrderId:String(submitted.orderId),
+  return {action:'DEMO_PROBE_NEEDS_PROTECTION',entryOrderId:String(submitted.orderId),clientOrderId,
    ordersPlaced:1,reason:'PROTECTION_FLOW_FAILED_RECONCILE_IMMEDIATELY',
    exchangeProtectionConfirmed:false,riskReviewRequired:true};
  }
