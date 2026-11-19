@@ -57,3 +57,18 @@ test('fresh matching active Algo ID confirms primary stop',async()=>{
  assert.equal(x.calls.filter(c=>c.method==='POST').length,1);
  assert.ok(x.calls.every(c=>c.url.startsWith('https://demo-fapi.binance.com/')));
 });
+
+test('existing close-position profit order blocks blind SL submission',async()=>{
+ const x=fakeExchange({existing:[{symbol:'XRPUSDT',side:'SELL',positionSide:'BOTH',
+  orderType:'TAKE_PROFIT_MARKET',closePosition:true,algoStatus:'NEW'}]});
+ const r=await submitAndVerifyDemoPrimaryStop({handoff,position,apiKey:'k',apiSecret:'s',fetchImpl:x.fetchImpl,explicitDemoAuthorization:true});
+ assert.equal(r.reason,'EXISTING_ACTIVE_STOP_REQUIRES_RECONCILIATION');
+ assert.equal(x.calls.filter(c=>c.method==='POST').length,0);
+});
+test('existing close-position stop on same leg is reconciled even with inconsistent side',async()=>{
+ const x=fakeExchange({existing:[{symbol:'XRPUSDT',side:'BUY',positionSide:'BOTH',
+  orderType:'STOP_MARKET',closePosition:true,algoStatus:'NEW'}]});
+ const r=await submitAndVerifyDemoPrimaryStop({handoff,position,apiKey:'k',apiSecret:'s',fetchImpl:x.fetchImpl,explicitDemoAuthorization:true});
+ assert.equal(r.reason,'EXISTING_ACTIVE_STOP_REQUIRES_RECONCILIATION');
+ assert.equal(x.calls.filter(c=>c.method==='POST').length,0);
+});
