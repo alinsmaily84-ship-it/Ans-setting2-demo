@@ -26,13 +26,15 @@ export class FastPriceWindow{
  ingest({symbol,price,receivedAt=Date.now()}){
   if(!valid(symbol)||!Number.isFinite(price)||price<=0||!Number.isFinite(receivedAt))throw Error('INVALID_PRICE_POINT');
   const arr=this.points.get(symbol)||[];
+  if(arr.length&&receivedAt<arr.at(-1).receivedAt)throw Error('OUT_OF_ORDER_PRICE_POINT');
   arr.push({price,receivedAt});
   while(arr.length&&arr[0].receivedAt<receivedAt-this.windowMs)arr.shift();
   this.points.set(symbol,arr);
   return this.read(symbol);
  }
- read(symbol){
+ read(symbol,now=Date.now()){
   const arr=this.points.get(symbol)||[];
+  while(arr.length&&arr[0].receivedAt<now-this.windowMs)arr.shift();
   return {symbol,windowMs:this.windowMs,count:arr.length,firstPrice:arr[0]?.price??null,lastPrice:arr.at(-1)?.price??null,
    changePct:arr.length>1?(arr.at(-1).price/arr[0].price-1)*100:null};
  }
