@@ -49,3 +49,8 @@ test('post-fill protection is planning only',()=>{
  assert.equal(profitFloorFromPeak(0.10).armed,true);
  assert.equal(demoStrategy.liveEnabled,false);
 });
+
+test('malformed exchange lot filters are rejected',()=>{
+ const broken={...sym,filters:[{filterType:'MARKET_LOT_SIZE',stepSize:'0.1',minQty:'not-a-number',maxQty:'100000'}]};
+ assert.throws(()=>prepareDemoProbe({symbol:'XRPUSDT',side:'BUY',price:2,exchangeSymbol:broken}),/EXCHANGE_FILTER_INVALID/);
+});
