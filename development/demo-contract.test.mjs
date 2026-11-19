@@ -119,3 +119,12 @@ test('one-shot Demo runner reads public market data and private positions withou
  assert.equal(calls.length,4);
  assert.ok(calls.every(x=>x.method==='GET'&&x.url.startsWith('https://demo-fapi.binance.com/')));
 });
+
+test('hedge-mode stop cannot protect the opposite position leg',()=>{
+ const position={symbol:'XRPUSDT',positionAmt:'100',positionSide:'LONG'};
+ const stop={symbol:'XRPUSDT',side:'SELL',positionSide:'SHORT',algoStatus:'NEW',orderType:'STOP_MARKET',closePosition:true,triggerPrice:'1.95'};
+ const result=auditDemoPositionProtection({symbol:'XRPUSDT',position,algoOrders:[stop],expectedStopSide:'SELL',expectedStopTrigger:1.95});
+ assert.equal(result.protected,false);
+ assert.equal(result.reason,'ACTIVE_STOP_NOT_CONFIRMED');
+ assert.throws(()=>auditDemoExposure({positions:[{symbol:'XRPUSDT',positionAmt:'invalid'}]}),/POSITION_QTY_INVALID/);
+});
