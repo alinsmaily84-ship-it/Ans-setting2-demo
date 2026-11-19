@@ -4,6 +4,18 @@ import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
 import {fetchDemoPrice,createPriceHistory} from './demo-price-feed.mjs';
 const observedPrices=createPriceHistory({limit:120});
+const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
+// Diagnostic read-only sampling; SOLUSDT is a test instrument, not a trading universe filter.
+async function sampleMonitor(){
+  if(monitor.running)return;
+  monitor.running=true;
+  try{
+    const tick=await fetchDemoPrice(monitor.symbol);
+    observedPrices.push(tick);
+    monitor.lastTick=tick;monitor.lastError=null;monitor.successes++;
+  }catch(error){monitor.lastError=String(error?.message||error).slice(0,120);monitor.failures++;}
+  finally{monitor.running=false;}
+}
 const port=Number(process.env.PORT||3000);
 const host='0.0.0.0';
 const startedAt=Date.now();
@@ -70,6 +82,10 @@ const server=createServer(async(req,res)=>{
     }
     return;
   }
+  if(req.url==='/demo-monitor') {
+    res.writeHead(200);res.end(JSON.stringify({...monitor,history:observedPrices.get(monitor.symbol),mode:'READ_ONLY',automatedTrading:false}));
+    return;
+  }
   if(req.url==='/health') {res.writeHead(200);res.end(JSON.stringify({status:'ok',venue:'BINANCE_FUTURES_DEMO',execution:'DISABLED',uptimeMs:Date.now()-startedAt}));return;}
   if(req.url==='/readiness') {
     const credentialsPresent=Boolean(process.env.BINANCE_DEMO_API_KEY&&process.env.BINANCE_DEMO_API_SECRET);
@@ -102,5 +118,10 @@ const server=createServer(async(req,res)=>{
   }
   res.writeHead(404);res.end(JSON.stringify({error:'NOT_FOUND'}));
 });
-if(import.meta.url===`file://${process.argv[1]}`)server.listen(port,host,()=>console.log(`Setting2 Demo read-only on ${port}`));
+if(import.meta.url===`file://${process.argv[1]}`) {
+  server.listen(port,host,()=>console.log(`Setting2 Demo read-only on ${port}`));
+  void sampleMonitor();
+  const monitorTimer=setInterval(()=>void sampleMonitor(),1000);
+  monitorTimer.unref();
+}
 export {server};
