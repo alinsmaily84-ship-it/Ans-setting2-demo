@@ -46,5 +46,15 @@ export function prepareDemoMarketOrder({symbol, side, desiredNotionalUsdt, price
 }
 
 export function prepareDemoProbe(input) {
-  return prepareDemoMarketOrder({...input,desiredNotionalUsdt:demoStrategy.probeNotionalUsdt});
+  const {exchangeSymbol,price}=input;
+  const filters=exchangeSymbol?.filters||[];
+  const lot=filters.find(x=>x.filterType==='MARKET_LOT_SIZE')||filters.find(x=>x.filterType==='LOT_SIZE');
+  const step=Number(lot?.stepSize),minQty=Number(lot?.minQty);
+  const notional=Number(filters.find(x=>x.filterType==='MIN_NOTIONAL')?.notional??0);
+  if(![step,minQty,notional,price].every(Number.isFinite)||step<=0||minQty<0||notional<0||price<=0)
+    throw Error('DEMO_MINIMUM_METADATA_INVALID');
+  const minUnits=Math.max(Math.ceil((notional/price)/step-1e-10),Math.ceil(minQty/step-1e-10),1);
+  const desiredNotionalUsdt=(minUnits+1)*step*price;
+  const planned=prepareDemoMarketOrder({...input,desiredNotionalUsdt});
+  return Object.freeze({...planned,minimumBased:true});
 }
