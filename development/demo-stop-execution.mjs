@@ -20,6 +20,14 @@ export async function submitAndVerifyDemoPrimaryStop({
      !Number.isFinite(entry) || entry<=0 ||
      Math.abs(entry-handoff.fill.positionEntryPrice)>Math.max(1e-8,entry*1e-8))
     return {protected:false,submitted:false,reason:'POSITION_CHANGED'};
+  if(stop.symbol!==handoff.fill.symbol ||
+     stop.side!==(qty>0?'SELL':'BUY') ||
+     stop.orderType!=='STOP_MARKET' ||
+     stop.workingType!=='MARK_PRICE' ||
+     stop.closePosition!==true ||
+     !Number.isFinite(Number(stop.triggerPrice)) ||
+     Number(stop.triggerPrice)<=0)
+    return {protected:false,submitted:false,reason:'PRIMARY_STOP_PROPOSAL_MISMATCH'};
   const positionSide=position.positionSide||'BOTH';
   if(!['BOTH','LONG','SHORT'].includes(positionSide) ||
      (positionSide==='LONG'&&qty<=0) ||
