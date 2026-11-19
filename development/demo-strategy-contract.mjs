@@ -32,10 +32,5 @@ export function rankBySpeed15m(candidates) {
   });
 }
 
-// Strategy direction is decided from current observations, not remembered direction.
-// This is a decision preview, not an order or a position reversal implementation.
-export function currentDirection({m1, m5, m15, m60}) {
-  if (![m1,m5,m15,m60].every(Number.isFinite)) throw new Error("INVALID_MOMENTUM");
-  const vote = m1 * 0.5 + m5 * 0.25 + m15 * 0.15 + m60 * 0.10;
-  return { side: vote > 0 ? "LONG" : vote < 0 ? "SHORT" : null, vote };
-}
+// Direction weights are deliberately unspecified pending parity with the approved Golden logic.
+// Do not infer LONG/SHORT or reverse positions from this module.
