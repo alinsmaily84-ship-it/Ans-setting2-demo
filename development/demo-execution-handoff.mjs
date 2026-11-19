@@ -22,17 +22,26 @@ export function prepareDemoDecisionHandoff({probe,review,exchangeSymbol,price}) 
 }
 
 import {planStopAfterFill} from './demo-protection-planner.mjs';
+import {demoStrategy} from './demo-strategy-contract.mjs';
 
 // Prepare protection only from a confirmed exchange position, never from an unfilled order.
 // A proposed stop is not considered protection until Binance accepts and reports it.
 export function prepareConfirmedFillProtection({symbol,positionQty,entryPrice,markPrice,tickSize}) {
-  const primary=planStopAfterFill({symbol,positionQty,entryPrice,markPrice,tickSize,maxLossUsdt:5});
-  const backup=planStopAfterFill({symbol,positionQty,entryPrice,markPrice,tickSize,maxLossUsdt:10});
+  const primary=planStopAfterFill({
+    symbol,positionQty,entryPrice,markPrice,tickSize,
+    maxLossUsdt:demoStrategy.stopLossPrimaryUsdt
+  });
+  const backup=planStopAfterFill({
+    symbol,positionQty,entryPrice,markPrice,tickSize,
+    maxLossUsdt:demoStrategy.stopLossBackupUsdt
+  });
   return {
     symbol,primary,backup,
-    readyForSubmission:primary.valid===true,
+    // The backup is a contingency, not an instruction to place both orders.
+    proposedFirstStop:primary.valid?primary:null,
+    requiresRiskReview:!primary.valid,
     exchangeProtectionConfirmed:false,
     executionEnabled:false,ordersPlaced:0,
-    note:'An executor must submit and verify the protective order before claiming protection.'
+    note:'Submit and verify the primary exchange stop first; backup requires separate failure handling.'
   };
 }
