@@ -32,10 +32,17 @@ export async function inspectDemoProtection({apiKey,apiSecret,fetchImpl,nowMs,ma
     }
     if(!proposed.valid)
       {reports.push({symbol,protected:false,reason:proposed.reason});continue;}
-    reports.push(auditDemoPositionProtection({
+    const primaryAudit=auditDemoPositionProtection({
       symbol,position,algoOrders:snapshot.algoOrders,
       expectedStopSide:proposed.side,expectedStopTrigger:proposed.triggerPrice
-    }));
+    });
+    // SL1 is the required active protection. SL2/SL3 are contingency budgets,
+    // not a reason to report an unprotected position as protected.
+    reports.push({...primaryAudit,
+      requiredTier:'SL1',requiredMaxLossUsdt:demoStrategy.stopLossPrimaryUsdt,
+      backupMaxLossUsdt:demoStrategy.stopLossBackupUsdt,
+      emergencyMaxLossUsdt:demoStrategy.stopLossEmergencyUsdt
+    });
   }
   return {
     venue:'BINANCE_FUTURES_DEMO',readOnly:true,executionEnabled:false,
