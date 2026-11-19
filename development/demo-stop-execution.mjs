@@ -46,8 +46,18 @@ export async function submitAndVerifyDemoPrimaryStop({
   } catch {
     return {protected:false,submitted:true,reason:'ACTIVE_STOP_READBACK_FAILED',algoId:String(accepted.algoId)};
   }
-  const verified=confirmReconciledDemoProtection({handoff,position,algoOrders});
+  // Only the just-accepted Algo ID can confirm this submission. A stale stop
+  // for the same symbol must not be mistaken for the newly submitted stop.
+  const acceptedId=String(accepted.algoId);
+  if(!Array.isArray(algoOrders))
+    return {protected:false,submitted:true,reason:'ALGO_READBACK_INVALID',algoId:acceptedId};
+  const matchingOrders=algoOrders.filter(o=>String(o?.algoId)===acceptedId);
+  if(matchingOrders.length!==1)
+    return {protected:false,submitted:true,reason:'SUBMITTED_ALGO_NOT_ACTIVE',algoId:acceptedId};
+  const verified=confirmReconciledDemoProtection({
+    handoff,position,algoOrders:matchingOrders
+  });
   return {protected:verified.protected===true,submitted:true,
-    reason:verified.reason,algoId:String(accepted.algoId),
+    reason:verified.reason,algoId:acceptedId,
     exchangeProtectionConfirmed:verified.exchangeProtectionConfirmed===true};
 }
