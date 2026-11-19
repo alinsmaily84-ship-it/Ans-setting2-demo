@@ -63,7 +63,7 @@ test('Demo protection audit distinguishes proposed from confirmed exchange stops
  const position={symbol:'XRPUSDT',positionAmt:'100'};
  const args={symbol:'XRPUSDT',position,expectedStopSide:'SELL',expectedStopTrigger:1.95};
  assert.equal(auditDemoPositionProtection({...args,algoOrders:[]}).protected,false);
- const algoOrders=[{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',closePosition:true,triggerPrice:'1.95',algoId:42}];
+ const algoOrders=[{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95',algoId:42}];
  const result=auditDemoPositionProtection({...args,algoOrders});
  assert.equal(result.protected,true);
  assert.equal(result.stopOrderId,'42');
@@ -88,7 +88,7 @@ test('Demo inspector verifies a real snapshot shape, not an assumed protection s
   ok:true,
   json:async()=>url.includes('positionRisk')
    ?[{symbol:'XRPUSDT',positionAmt:'100',entryPrice:'2'}]
-   :[{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',closePosition:true,triggerPrice:'1.95',algoId:42}]
+   :[{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95',algoId:42}]
  });
  const args={apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl,nowMs:1700000000000,
   marketBySymbol:{XRPUSDT:{markPrice:2,tickSize:0.001}}};
@@ -109,7 +109,7 @@ test('one-shot Demo runner reads public market data and private positions withou
    const data=url.includes('exchangeInfo')?{symbols:[{symbol:'XRPUSDT',filters:[{filterType:'PRICE_FILTER',tickSize:'0.001'}]}]}:
      url.includes('premiumIndex')?[{symbol:'XRPUSDT',markPrice:'2'}]:
      url.includes('positionRisk')?[{symbol:'XRPUSDT',positionAmt:'100',entryPrice:'2'}]:
-     [{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',closePosition:true,triggerPrice:'1.95',algoId:42}];
+     [{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95',algoId:42}];
    return {ok:true,json:async()=>data};
  };
  const report=await runDemoInspection({apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl:fakeFetch,nowMs:1700000000000});
@@ -122,9 +122,16 @@ test('one-shot Demo runner reads public market data and private positions withou
 
 test('hedge-mode stop cannot protect the opposite position leg',()=>{
  const position={symbol:'XRPUSDT',positionAmt:'100',positionSide:'LONG'};
- const stop={symbol:'XRPUSDT',side:'SELL',positionSide:'SHORT',algoStatus:'NEW',orderType:'STOP_MARKET',closePosition:true,triggerPrice:'1.95'};
+ const stop={symbol:'XRPUSDT',side:'SELL',positionSide:'SHORT',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95'};
  const result=auditDemoPositionProtection({symbol:'XRPUSDT',position,algoOrders:[stop],expectedStopSide:'SELL',expectedStopTrigger:1.95});
  assert.equal(result.protected,false);
  assert.equal(result.reason,'ACTIVE_STOP_NOT_CONFIRMED');
  assert.throws(()=>auditDemoExposure({positions:[{symbol:'XRPUSDT',positionAmt:'invalid'}]}),/POSITION_QTY_INVALID/);
+});
+
+test('contract-price stop does not falsely confirm mark-price protection',()=>{
+ const position={symbol:'XRPUSDT',positionAmt:'100'};
+ const order={symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'CONTRACT_PRICE',closePosition:true,triggerPrice:'1.95'};
+ const result=auditDemoPositionProtection({symbol:'XRPUSDT',position,algoOrders:[order],expectedStopSide:'SELL',expectedStopTrigger:1.95});
+ assert.equal(result.protected,false);
 });
