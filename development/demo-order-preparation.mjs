@@ -23,13 +23,16 @@ export function prepareDemoMarketOrder({symbol, side, desiredNotionalUsdt, price
   const lot = filters.find(x=>x.filterType==="MARKET_LOT_SIZE") || filters.find(x=>x.filterType==="LOT_SIZE");
   if (!lot) throw new Error("LOT_FILTER_MISSING");
   const step=Number(lot.stepSize), digits=decimalPlaces(lot.stepSize);
+  const minQty=Number(lot.minQty),maxQty=Number(lot.maxQty);
+  const minNotional=Number(filters.find(x=>x.filterType==="MIN_NOTIONAL")?.notional ?? 0);
+  if (![step,minQty,maxQty,minNotional].every(Number.isFinite) ||
+      step<=0 || minQty<0 || maxQty<=0 || minQty>maxQty || minNotional<0)
+    throw new Error("EXCHANGE_FILTER_INVALID");
   const raw=desiredNotionalUsdt/price;
   // Exchange quantity must be rounded DOWN, never rounded up beyond the requested notional.
   const units=Math.floor(raw/step + 1e-10);
   const quantity=Number((units*step).toFixed(digits));
   const actualNotionalUsdt=quantity*price;
-  const minNotional=Number(filters.find(x=>x.filterType==="MIN_NOTIONAL")?.notional ?? 0);
-  const minQty=Number(lot.minQty),maxQty=Number(lot.maxQty);
   const reasons=[];
   if (!(quantity>0) || quantity<minQty) reasons.push("BELOW_MIN_QTY");
   if (quantity>maxQty) reasons.push("ABOVE_MAX_QTY");
