@@ -3,6 +3,7 @@ import {timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
 import {fetchDemoPrice,createPriceHistory} from './demo-price-feed.mjs';
+import {fetchDemoCandles} from './demo-candle-feed.mjs';
 import {compareClampDirection} from './clamp-direction-shadow.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
@@ -79,6 +80,20 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
+  if(req.url?.startsWith('/demo-candles?')) {
+    try {
+      const parsed=new URL(req.url,'http://localhost');
+      const symbol=parsed.searchParams.get('symbol');
+      const interval=parsed.searchParams.get('interval');
+      const limitRaw=parsed.searchParams.get('limit');
+      const limit=limitRaw===null?100:Number(limitRaw);
+      const result=await fetchDemoCandles(symbol,interval,{limit});
+      res.writeHead(200);res.end(JSON.stringify({...result,automatedTrading:false,originalStrategyConnected:false}));
+    } catch(error) {
+      res.writeHead(503);res.end(JSON.stringify({error:'DEMO_CANDLES_UNAVAILABLE',detail:String(error?.message||error).slice(0,100)}));
+    }
+    return;
+  }
   if(req.url?.startsWith('/demo-price?')) {
     try {
       const parsed=new URL(req.url,'http://localhost');
