@@ -44,9 +44,10 @@ export async function executeOneDemoProtectedProbe({
    beforePositions:before.positions,afterPositions:after.positions,
    stepSize,markPrice,tickSize,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization:true
   });
-  return {action:protection.exchangeProtectionConfirmed?'DEMO_PROBE_PROTECTED':'DEMO_PROBE_NEEDS_PROTECTION',
+  return {...protection,
+   action:protection.exchangeProtectionConfirmed===true?'DEMO_PROBE_PROTECTED':'DEMO_PROBE_NEEDS_PROTECTION',
    entryOrderId:String(submitted.orderId),ordersPlaced:1,
-   ...protection,exchangeProtectionConfirmed:protection.exchangeProtectionConfirmed===true};
+   exchangeProtectionConfirmed:protection.exchangeProtectionConfirmed===true};
  }catch{
   return {action:'DEMO_PROBE_NEEDS_PROTECTION',entryOrderId:String(submitted.orderId),
    ordersPlaced:1,reason:'PROTECTION_FLOW_FAILED_RECONCILE_IMMEDIATELY',exchangeProtectionConfirmed:false};
