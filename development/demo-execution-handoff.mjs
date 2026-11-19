@@ -59,11 +59,18 @@ export function prepareStaleProbeClose({probe,review,exchangePosition}) {
     return {action:decision.action,executionEnabled:false,ordersPlaced:0};
   const qty=Number(exchangePosition?.positionAmt);
   const side=qty>0?'SELL':'BUY';
+  // Check actual exchange quantity against the probe fill, not a caller-provided
+  // notional estimate: a stale estimate could otherwise close an expanded position.
+  const entryPrice=Number(exchangePosition?.entryPrice);
+  const observedNotional=Math.abs(qty)*entryPrice;
+  const tolerance=Math.max(0.1,probe.filledNotionalUsdt*0.03);
   const matches=exchangePosition?.symbol===probe.symbol &&
     (!exchangePosition.positionSide || exchangePosition.positionSide==='BOTH') &&
     Number.isFinite(qty) && qty!==0 &&
+    Number.isFinite(entryPrice) && entryPrice>0 &&
     (qty>0?'LONG':'SHORT')===probe.initialSide &&
-    Math.abs(Number(review.currentNotionalUsdt)-Number(probe.filledNotionalUsdt))<=Math.max(0.1,probe.filledNotionalUsdt*0.03);
+    Number.isFinite(observedNotional) &&
+    Math.abs(observedNotional-probe.filledNotionalUsdt)<=tolerance;
   if (!matches) return {action:'CLOSE_REQUIRES_POSITION_RECONCILIATION',
     executionEnabled:false,ordersPlaced:0};
   return {
