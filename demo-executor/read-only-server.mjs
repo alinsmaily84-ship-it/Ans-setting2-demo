@@ -10,6 +10,7 @@ import {calcSetting2Indicators} from './setting2-original-indicators.mjs';
 import {applySetting2Forecast} from './setting2-original-forecast.mjs';
 import {applySetting2FastForecast} from './setting2-original-fast-forecast.mjs';
 import {compareClampDirection} from './clamp-direction-shadow.mjs';
+import {previewSpeedFirstDecision} from './setting2-speed-first-preview.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
 const shadow={last:null,counts:{LONG:0,SHORT:0,WAIT:0},errors:0};
@@ -96,8 +97,9 @@ const server=createServer(async(req,res)=>{
       const forecast=applySetting2FastForecast(indicators['1m'],indicators['1m'],indicators['5m'],indicators['1h'],indicators['1m'].price);
       const prices=observedPrices.get(symbol).map(x=>x.price);
       const speed=compareClampDirection({originalSide:forecast.side,prices,lookback:8});
+      const speedFirst=previewSpeedFirstDecision({prices,observedAt:monitor.lastTick?.observedAt,forecastSide:forecast.side});
       res.writeHead(200);res.end(JSON.stringify({
-        symbol,forecastSide:forecast.side,forecastScore:forecast.score,
+        symbol,forecastSide:forecast.side,forecastScore:forecast.score,speedFirstPreview:speedFirst,
         tickSpeedSide:speed.clampSide,tickSpeedNetMove:speed.netMove,
         tickSpeedUpTicks:speed.upTicks,tickSpeedDownTicks:speed.downTicks,
         directionAgreement:forecast.side!=='WAIT'&&speed.clampSide===forecast.side,
