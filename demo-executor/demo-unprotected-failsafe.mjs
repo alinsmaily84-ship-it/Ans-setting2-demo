@@ -2,9 +2,12 @@
 // Never send a close if an active algo stop exists or position mode is ambiguous.
 import {fetchDemoAccountSnapshot} from './demo-account-reader.mjs';
 import {sendExplicitDemoRequest} from './demo-order-transport.mjs';
-export async function flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,explicitDemoAuthorization=false}={}){
+export async function flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,fetchImpl,beforePositions,explicitDemoAuthorization=false}={}){
  if(!explicitDemoAuthorization)return {action:'NO_ACTION',reason:'AUTHORIZATION_REQUIRED'};
  if(!/^[A-Z0-9]+USDT$/.test(symbol||'')||!['BUY','SELL'].includes(side))throw Error('INVALID_PROBE');
+ // Never flatten a position unless a pre-entry snapshot proves it was absent.
+ if(!Array.isArray(beforePositions)||beforePositions.some(p=>p.symbol===symbol&&(!Number.isFinite(Number(p.positionAmt))||Number(p.positionAmt)!==0)))
+  return {action:'MANUAL_RECONCILIATION_REQUIRED',reason:'CLEAN_PRE_ENTRY_SNAPSHOT_REQUIRED'};
  let snapshot;
  try{snapshot=await fetchDemoAccountSnapshot({apiKey,apiSecret,fetchImpl});}
  catch{return {action:'MANUAL_RECONCILIATION_REQUIRED',reason:'ACCOUNT_READ_FAILED'};}
