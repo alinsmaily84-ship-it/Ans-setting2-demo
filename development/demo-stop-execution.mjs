@@ -54,8 +54,7 @@ export async function submitAndVerifyDemoPrimaryStop({
   const existing=preflight.algoOrders.filter(o=>
     o.symbol===stop.symbol &&
     (o.positionSide||'BOTH')===positionSide &&
-    o.side===(qty>0?'SELL':'BUY') &&
-    (o.orderType||o.type)==='STOP_MARKET' &&
+    ['STOP_MARKET','TAKE_PROFIT_MARKET','TRAILING_STOP_MARKET'].includes(o.orderType||o.type) &&
     (o.closePosition===true||o.closePosition==='true') &&
     ['NEW','WORKING','PENDING'].includes(String(o.algoStatus||o.status||'').toUpperCase())
   );
