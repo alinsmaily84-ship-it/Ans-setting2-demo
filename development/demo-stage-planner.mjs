@@ -25,12 +25,14 @@ export function planProbeReview(probe, {nowMs, positionSide, marketDirection, cu
       !finiteTime(directionObservedAtMs) || typeof addEligible !== "boolean")
     throw new Error("REVIEW_INPUT_INVALID");
   if (nowMs < probe.nextReviewAtMs) return {action:"NOT_DUE", dueAtMs:probe.nextReviewAtMs};
+  const elapsedSeconds=(nowMs-probe.filledAtMs)/1000;
+  // At 60s, the no-add exit must not be blocked by a stale direction signal:
+  // closing an unexpanded probe does not require a new directional prediction.
+  if (!addEligible && elapsedSeconds >= demoStrategy.staleProbeReviewSeconds)
+    return {action:"CLOSE_PROBE_PROPOSAL", executable:false, reason:"NO_ADD_AT_60_SECONDS"};
   if (directionObservedAtMs > nowMs + 1000 || nowMs - directionObservedAtMs > 5000)
     return {action:"DIRECTION_STALE", executable:false};
-  const elapsedSeconds=(nowMs-probe.filledAtMs)/1000;
   if (!addEligible) {
-    if (elapsedSeconds >= demoStrategy.staleProbeReviewSeconds)
-      return {action:"CLOSE_PROBE_PROPOSAL", executable:false, reason:"NO_ADD_AT_60_SECONDS"};
     return {
       action:"RECHECK_PENDING", executable:false,
       nextState:{...probe,phase:"RECHECK_PENDING",nextReviewAtMs:probe.filledAtMs+demoStrategy.staleProbeReviewSeconds*1000}
