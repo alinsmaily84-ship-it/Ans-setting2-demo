@@ -135,3 +135,20 @@ test('contract-price stop does not falsely confirm mark-price protection',()=>{
  const result=auditDemoPositionProtection({symbol:'XRPUSDT',position,algoOrders:[order],expectedStopSide:'SELL',expectedStopTrigger:1.95});
  assert.equal(result.protected,false);
 });
+
+test('malformed position entry does not hide the rest of the Demo audit',async()=>{
+ const fakeFetch=async url=>({
+  ok:true,
+  json:async()=>url.includes('positionRisk')
+   ?[{symbol:'XRPUSDT',positionAmt:'100',entryPrice:'invalid'},{symbol:'BTCUSDT',positionAmt:'1',entryPrice:'100'}]
+   :[]
+ });
+ const report=await inspectDemoProtection({
+  apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl:fakeFetch,nowMs:1700000000000,
+  marketBySymbol:{XRPUSDT:{markPrice:2,tickSize:0.001},BTCUSDT:{markPrice:100,tickSize:0.1}}
+ });
+ assert.equal(report.exposure.openPositionCount,2);
+ assert.equal(report.reports.length,2);
+ assert.equal(report.reports[0].reason,'STOP_INPUT_INVALID');
+ assert.equal(report.allOpenPositionsProtected,false);
+});
