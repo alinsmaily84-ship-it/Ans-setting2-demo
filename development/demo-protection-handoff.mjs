@@ -39,7 +39,10 @@ export function confirmReconciledDemoProtection({handoff,position,algoOrders}) {
      !handoff.protection?.primary?.valid)
     return {protected:false,reason:'PROTECTION_HANDOFF_NOT_READY'};
   if(!position || position.symbol!==handoff.fill.symbol ||
-     Number(position.positionAmt)!==handoff.fill.positionQty)
+     Number(position.positionAmt)!==handoff.fill.positionQty ||
+     !Number.isFinite(Number(position.entryPrice)) ||
+     Math.abs(Number(position.entryPrice)-handoff.fill.positionEntryPrice)>
+       Math.max(1e-8,handoff.fill.positionEntryPrice*1e-8))
     return {protected:false,reason:'POSITION_CHANGED_SINCE_STOP_PLAN'};
   const primary=handoff.protection.primary;
   const expectedStopTrigger=Number(primary.triggerPrice);
