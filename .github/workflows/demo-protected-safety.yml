@@ -16,7 +16,7 @@ jobs:
           node-version: '22'
       - name: Run Demo-only protection and failsafe tests
         working-directory: demo-executor
-        run: node --test demo-unprotected-failsafe.test.mjs
+        run: node --test demo-unprotected-failsafe.test.mjs demo-order-preparation.test.mjs
       - name: Validate protected entry and server syntax
         working-directory: demo-executor
         run: |
