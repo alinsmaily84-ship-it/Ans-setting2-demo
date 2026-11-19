@@ -33,3 +33,35 @@ export function reconcileDemoMarketFill({symbol,side,requestedQuantity,submitted
     requiresPositionDeltaReconciliation:true,
     exchangeProtectionConfirmed:false,ordersPlaced:0};
 }
+
+
+// Verify that the observed position change agrees with the exchange-confirmed fill.
+// This is mandatory before treating a fill as a new protected exposure.
+export function reconcileDemoPositionDelta({symbol,side,executedQty,beforePositions,afterPositions,stepSize}) {
+  if(!/^[A-Z0-9]+USDT$/.test(symbol||'') || !['BUY','SELL'].includes(side) ||
+     !Number.isFinite(Number(executedQty)) || !(Number(executedQty)>0) ||
+     !Number.isFinite(Number(stepSize)) || !(Number(stepSize)>0) ||
+     !Array.isArray(beforePositions) || !Array.isArray(afterPositions))
+    throw new Error('DEMO_POSITION_DELTA_INPUT_INVALID');
+  const quantity=(positions)=>{
+    const matching=positions.filter(p=>p?.symbol===symbol &&
+      (!p.positionSide || p.positionSide==='BOTH'));
+    if(matching.length>1)return null;
+    if(matching.length===0)return 0;
+    const value=Number(matching[0].positionAmt);
+    return Number.isFinite(value)?value:null;
+  };
+  const before=quantity(beforePositions),after=quantity(afterPositions);
+  if(before===null || after===null)
+    return {confirmed:false,reason:'POSITION_SNAPSHOT_AMBIGUOUS'};
+  const expected=(side==='BUY'?1:-1)*Number(executedQty);
+  const observed=after-before;
+  // Account for Binance quantity precision without accepting a materially
+  // different change caused by another order or stale snapshot.
+  const tolerance=Math.max(Number(stepSize)*0.51,Math.abs(expected)*1e-8);
+  if(Math.abs(observed-expected)>tolerance)
+    return {confirmed:false,reason:'POSITION_DELTA_MISMATCH',expectedDelta:expected,observedDelta:observed};
+  return {confirmed:true,reason:'POSITION_DELTA_CONFIRMED',
+    beforeQty:before,afterQty:after,observedDelta:observed,
+    exchangeProtectionConfirmed:false};
+}
