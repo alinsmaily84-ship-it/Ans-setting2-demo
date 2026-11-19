@@ -3,6 +3,7 @@ import {timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
 import {fetchDemoPrice,createPriceHistory} from './demo-price-feed.mjs';
+import {compareClampDirection} from './clamp-direction-shadow.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
 // Diagnostic read-only sampling; SOLUSDT is a test instrument, not a trading universe filter.
@@ -80,6 +81,19 @@ const server=createServer(async(req,res)=>{
     } catch(error) {
       res.writeHead(503);res.end(JSON.stringify({error:'DEMO_PRICE_UNAVAILABLE',detail:String(error.message).slice(0,90)}));
     }
+    return;
+  }
+  if(req.url?.startsWith('/demo-direction?')) {
+    const parsed=new URL(req.url,'http://localhost');
+    const originalSide=parsed.searchParams.get('originalSide');
+    if(!['LONG','SHORT','WAIT'].includes(originalSide)){
+      res.writeHead(400);res.end(JSON.stringify({error:'ORIGINAL_SETTING2_DECISION_REQUIRED',mode:'SHADOW_ONLY'}));return;
+    }
+    const prices=observedPrices.get(monitor.symbol).map(x=>x.price);
+    try {
+      const comparison=compareClampDirection({originalSide,prices,lookback:8});
+      res.writeHead(200);res.end(JSON.stringify({symbol:monitor.symbol,samples:prices.length,...comparison,automatedTrading:false}));
+    }catch(error){res.writeHead(409);res.end(JSON.stringify({error:String(error.message)}));}
     return;
   }
   if(req.url==='/demo-monitor') {
