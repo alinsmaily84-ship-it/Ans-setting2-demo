@@ -29,13 +29,15 @@ export function prepareSignedDemoRequest({kind,apiKey,apiSecret,params={},timest
     : kind==='marketOrder'
     ? new Set(['symbol','side','type','quantity','reduceOnly','newClientOrderId'])
     : kind==='orderStatus'
-      ? new Set(['symbol','orderId'])
+      ? new Set(['symbol','orderId','origClientOrderId'])
       : new Set(['symbol']);
   if(Object.keys(params).some(k=>!allowed.has(k)))
     throw new Error('DEMO_PARAM_NOT_ALLOWED');
   if(kind==='orderStatus' &&
      (!/^[A-Z0-9]+USDT$/.test(params.symbol||'') ||
-      !/^[0-9]+$/.test(String(params.orderId||''))))
+      (Boolean(params.orderId)===Boolean(params.origClientOrderId)) ||
+      (params.orderId!==undefined && !/^[0-9]+$/.test(String(params.orderId))) ||
+      (params.origClientOrderId!==undefined && !/^[A-Za-z0-9_-]{1,36}$/.test(params.origClientOrderId))))
     throw new Error('DEMO_ORDER_STATUS_INVALID');
   if(kind==='openAlgoOrders' && params.symbol!==undefined &&
      !/^[A-Z0-9]+USDT$/.test(params.symbol))
