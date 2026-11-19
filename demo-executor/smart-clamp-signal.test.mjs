@@ -1,0 +1,12 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {smartClampSignal} from './smart-clamp-signal.mjs';
+const run=(side,previousPrice,price,previousClampPrice,clampPrice)=>smartClampSignal({side,previousPrice,price,previousClampPrice,clampPrice});
+test('LONG follows gains without closing',()=>{const x=run('LONG',100,102,99,101);assert.equal(x.clampPrice,101);assert.equal(x.shouldClose,false)});
+test('LONG ratchet never lowers',()=>{const x=run('LONG',102,101.5,101,100);assert.equal(x.clampPrice,101);assert.equal(x.shouldClose,false)});
+test('LONG reverses through clamp',()=>assert.equal(run('LONG',102,100.9,101,101).shouldClose,true));
+test('SHORT follows gains without closing',()=>assert.equal(run('SHORT',100,98,101,99).shouldClose,false));
+test('SHORT ratchet never rises',()=>{const x=run('SHORT',98,98.5,99,100);assert.equal(x.clampPrice,99);assert.equal(x.shouldClose,false)});
+test('SHORT reverses through clamp',()=>assert.equal(run('SHORT',98,99.1,99,99).shouldClose,true));
+test('no close without reverse',()=>assert.equal(run('LONG',100,101,101,101).shouldClose,false));
+test('reject invalid prices',()=>assert.throws(()=>run('LONG',100,NaN,99,99)));
