@@ -35,13 +35,17 @@ export function prepareConfirmedFillProtection({symbol,positionQty,entryPrice,ma
     symbol,positionQty,entryPrice,markPrice,tickSize,
     maxLossUsdt:demoStrategy.stopLossBackupUsdt
   });
+  const emergency=planStopAfterFill({
+    symbol,positionQty,entryPrice,markPrice,tickSize,
+    maxLossUsdt:demoStrategy.stopLossEmergencyUsdt
+  });
   return {
-    symbol,primary,backup,
+    symbol,primary,backup,emergency,
     // The backup is a contingency, not an instruction to place both orders.
     proposedFirstStop:primary.valid?primary:null,
     requiresRiskReview:!primary.valid,
     exchangeProtectionConfirmed:false,
     executionEnabled:false,ordersPlaced:0,
-    note:'Submit and verify the primary exchange stop first; backup requires separate failure handling.'
+    note:'Submit and verify the primary exchange stop first; SL2 and SL3 require separate failure handling.'
   };
 }
