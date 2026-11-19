@@ -11,6 +11,7 @@ import {applySetting2Forecast} from './setting2-original-forecast.mjs';
 import {applySetting2FastForecast} from './setting2-original-fast-forecast.mjs';
 import {compareClampDirection} from './clamp-direction-shadow.mjs';
 import {previewSpeedFirstDecision} from './setting2-speed-first-preview.mjs';
+import {previewSetting2Entry} from './setting2-entry-decision-preview.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
 const shadow={last:null,counts:{LONG:0,SHORT:0,WAIT:0},errors:0};
@@ -98,8 +99,9 @@ const server=createServer(async(req,res)=>{
       const prices=observedPrices.get(symbol).map(x=>x.price);
       const speed=compareClampDirection({originalSide:forecast.side,prices,lookback:8});
       const speedFirst=previewSpeedFirstDecision({prices,observedAt:monitor.lastTick?.observedAt,forecastSide:forecast.side});
+      const entryPreview=previewSetting2Entry({signal:forecast,speedPreview:speedFirst,strategyMode:'UNVERIFIED'});
       res.writeHead(200);res.end(JSON.stringify({
-        symbol,forecastSide:forecast.side,forecastScore:forecast.score,speedFirstPreview:speedFirst,
+        symbol,forecastSide:forecast.side,forecastScore:forecast.score,speedFirstPreview:speedFirst,entryPreview,
         tickSpeedSide:speed.clampSide,tickSpeedNetMove:speed.netMove,
         tickSpeedUpTicks:speed.upTicks,tickSpeedDownTicks:speed.downTicks,
         directionAgreement:forecast.side!=='WAIT'&&speed.clampSide===forecast.side,
