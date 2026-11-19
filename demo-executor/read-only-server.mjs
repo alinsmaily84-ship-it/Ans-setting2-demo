@@ -6,13 +6,21 @@ import {fetchDemoPrice,createPriceHistory} from './demo-price-feed.mjs';
 import {compareClampDirection} from './clamp-direction-shadow.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
+const shadow={last:null,counts:{LONG:0,SHORT:0,WAIT:0},errors:0};
 // Diagnostic read-only sampling; SOLUSDT is a test instrument, not a trading universe filter.
 async function sampleMonitor(){
   if(monitor.running)return;
   monitor.running=true;
   try{
     const tick=await fetchDemoPrice(monitor.symbol);
-    observedPrices.push(tick);
+    const prices=observedPrices.push(tick);
+    if(prices.length>=9){
+      try{
+        const comparison=compareClampDirection({originalSide:'WAIT',prices,lookback:8});
+        shadow.last={observedAt:tick.observedAt,symbol:tick.symbol,price:tick.price,clampSide:comparison.clampSide,upTicks:comparison.upTicks,downTicks:comparison.downTicks,netMove:comparison.netMove,mode:'SHADOW_ONLY',originalDecisionConnected:false};
+        shadow.counts[comparison.clampSide]++;
+      }catch{shadow.errors++;}
+    }
     monitor.lastTick=tick;monitor.lastError=null;monitor.successes++;
   }catch(error){monitor.lastError=String(error?.message||error).slice(0,120);monitor.failures++;}
   finally{monitor.running=false;}
@@ -94,6 +102,10 @@ const server=createServer(async(req,res)=>{
       const comparison=compareClampDirection({originalSide,prices,lookback:8});
       res.writeHead(200);res.end(JSON.stringify({symbol:monitor.symbol,samples:prices.length,...comparison,automatedTrading:false}));
     }catch(error){res.writeHead(409);res.end(JSON.stringify({error:String(error.message)}));}
+    return;
+  }
+  if(req.url==='/demo-shadow') {
+    res.writeHead(200);res.end(JSON.stringify({...shadow,automatedTrading:false,originalStrategyConnected:false}));
     return;
   }
   if(req.url==='/demo-monitor') {
