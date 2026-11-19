@@ -8,6 +8,7 @@ import {planStopAfterFill,profitFloorFromPeak} from './demo-protection-planner.m
 import {auditDemoPositionProtection,auditDemoExposure} from './demo-exchange-audit.mjs';
 import {signDemoReadOnlyQuery,fetchDemoAccountSnapshot} from './demo-account-reader.mjs';
 import {inspectDemoProtection} from './demo-protection-inspector.mjs';
+import {runDemoInspection} from './demo-inspection-runner.mjs';
 
 const sym={symbol:'XRPUSDT',status:'TRADING',contractType:'PERPETUAL',quoteAsset:'USDT',filters:[
  {filterType:'MARKET_LOT_SIZE',stepSize:'0.1',minQty:'0.1',maxQty:'100000'},
@@ -99,4 +100,22 @@ test('Demo inspector verifies a real snapshot shape, not an assumed protection s
  assert.equal(missing.reports[0].reason,'MARKET_REFERENCE_MISSING');
  const empty=await inspectDemoProtection({...args,fetchImpl:async()=>({ok:true,json:async()=>[]})});
  assert.equal(empty.allOpenPositionsProtected,false);
+});
+
+test('one-shot Demo runner reads public market data and private positions without sending orders',async()=>{
+ const calls=[];
+ const fakeFetch=async (url,opts)=>{
+   calls.push({url,method:opts.method});
+   const data=url.includes('exchangeInfo')?{symbols:[{symbol:'XRPUSDT',filters:[{filterType:'PRICE_FILTER',tickSize:'0.001'}]}]}:
+     url.includes('premiumIndex')?[{symbol:'XRPUSDT',markPrice:'2'}]:
+     url.includes('positionRisk')?[{symbol:'XRPUSDT',positionAmt:'100',entryPrice:'2'}]:
+     [{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',closePosition:true,triggerPrice:'1.95',algoId:42}];
+   return {ok:true,json:async()=>data};
+ };
+ const report=await runDemoInspection({apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl:fakeFetch,nowMs:1700000000000});
+ assert.equal(report.openPositionCount,1);
+ assert.equal(report.allOpenPositionsProtected,true);
+ assert.equal(report.ordersPlaced,0);
+ assert.equal(calls.length,4);
+ assert.ok(calls.every(x=>x.method==='GET'&&x.url.startsWith('https://demo-fapi.binance.com/')));
 });
