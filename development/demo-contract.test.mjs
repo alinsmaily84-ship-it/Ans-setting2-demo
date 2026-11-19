@@ -152,3 +152,12 @@ test('malformed position entry does not hide the rest of the Demo audit',async()
  assert.equal(report.reports[0].reason,'STOP_INPUT_INVALID');
  assert.equal(report.allOpenPositionsProtected,false);
 });
+
+test('stop price rounding does not increase planned loss beyond five USDT',()=>{
+ const long=planStopAfterFill({symbol:'XRPUSDT',positionQty:100,entryPrice:2,markPrice:2,tickSize:0.03});
+ assert.equal(long.valid,true);
+ assert.ok((2-long.triggerPrice)*100<=5+1e-7);
+ const short=planStopAfterFill({symbol:'XRPUSDT',positionQty:-100,entryPrice:2,markPrice:2,tickSize:0.03});
+ assert.equal(short.valid,true);
+ assert.ok((short.triggerPrice-2)*100<=5+1e-7);
+});
