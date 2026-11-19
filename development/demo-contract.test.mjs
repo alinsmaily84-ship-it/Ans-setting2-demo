@@ -170,3 +170,16 @@ test('hedge-mode position cannot be certified by an unverified close-all stop',a
  assert.equal(report.allOpenPositionsProtected,false);
  assert.equal(report.reports[0].reason,'HEDGE_MODE_STOP_REQUIRES_VERIFIED_EXCHANGE_SUPPORT');
 });
+
+test('exchange audit accepts stricter stops but never looser ones',()=>{
+ const position={symbol:'XRPUSDT',positionAmt:'100'};
+ const base={symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true};
+ const args={symbol:'XRPUSDT',position,expectedStopSide:'SELL',expectedStopTrigger:1.95};
+ assert.equal(auditDemoPositionProtection({...args,algoOrders:[{...base,triggerPrice:'1.97'}]}).protected,true);
+ assert.equal(auditDemoPositionProtection({...args,algoOrders:[{...base,triggerPrice:'1.90'}]}).protected,false);
+ const shortPosition={symbol:'XRPUSDT',positionAmt:'-100'};
+ const shortBase={...base,side:'BUY'};
+ const shortArgs={symbol:'XRPUSDT',position:shortPosition,expectedStopSide:'BUY',expectedStopTrigger:2.05};
+ assert.equal(auditDemoPositionProtection({...shortArgs,algoOrders:[{...shortBase,triggerPrice:'2.03'}]}).protected,true);
+ assert.equal(auditDemoPositionProtection({...shortArgs,algoOrders:[{...shortBase,triggerPrice:'2.10'}]}).protected,false);
+});
