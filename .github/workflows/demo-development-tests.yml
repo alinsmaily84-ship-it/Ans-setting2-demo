@@ -1,0 +1,16 @@
+name: Demo-only development checks
+on:
+  push:
+    branches: [v2-baseline-recovery-dev]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test development/demo-contract.test.mjs
