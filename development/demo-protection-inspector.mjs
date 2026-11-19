@@ -16,10 +16,16 @@ export async function inspectDemoProtection({apiKey,apiSecret,fetchImpl,nowMs,ma
     const market=marketBySymbol[symbol];
     if(!market || !Number.isFinite(market.markPrice) || !Number.isFinite(market.tickSize))
       {reports.push({symbol,protected:false,reason:'MARKET_REFERENCE_MISSING'});continue;}
-    const proposed=planStopAfterFill({
-      symbol,positionQty:qty,entryPrice:Number(position.entryPrice),
-      markPrice:market.markPrice,tickSize:market.tickSize
-    });
+    let proposed;
+    try {
+      proposed=planStopAfterFill({
+        symbol,positionQty:qty,entryPrice:Number(position.entryPrice),
+        markPrice:market.markPrice,tickSize:market.tickSize
+      });
+    } catch {
+      reports.push({symbol,protected:false,reason:'STOP_INPUT_INVALID'});
+      continue;
+    }
     if(!proposed.valid)
       {reports.push({symbol,protected:false,reason:proposed.reason});continue;}
     reports.push(auditDemoPositionProtection({
