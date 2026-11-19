@@ -1,0 +1,11 @@
+{
+  "source": "Railway immutable ANS V2 LIVE BASELINE 01 snapshot",
+  "createdAt": "2026-11-15",
+  "sourceServiceIds": {
+    "engine": "8d2fd49b-1158-465d-9f1c-934717776908",
+    "guardian": "52762b4b-3efc-4448-846e-3a01c502d5da",
+    "stopLoss": "3f806846-edf1-4cf1-82ea-092c542eb38b",
+    "analyzer": "c914cc40-8850-4fb2-885d-6644c5c65b5a"
+  },
+  "warning": "Recovered historical sources for review only. NOT deployable or authorized for trading. Guardian and risk behavior may differ from current requirements."
+}
