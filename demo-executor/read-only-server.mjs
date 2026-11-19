@@ -85,6 +85,30 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
+  if(req.url==='/setting2-speed-comparison') {
+    try {
+      const symbol=monitor.symbol;
+      const market=await fetchSetting2MarketInputs(symbol);
+      const adapted=setting2ScannerFrames(market);
+      const indicators={};
+      for(const tf of ['1m','5m','1h'])indicators[tf]=calcSetting2Indicators(adapted.frames[tf],tf);
+      if(!indicators['1m']||!indicators['5m']||!indicators['1h'])throw Error('INSUFFICIENT_COMPLETED_CANDLES');
+      const forecast=applySetting2FastForecast(indicators['1m'],indicators['1m'],indicators['5m'],indicators['1h'],indicators['1m'].price);
+      const prices=observedPrices.get(symbol).map(x=>x.price);
+      const speed=compareClampDirection({originalSide:forecast.side,prices,lookback:8});
+      res.writeHead(200);res.end(JSON.stringify({
+        symbol,forecastSide:forecast.side,forecastScore:forecast.score,
+        tickSpeedSide:speed.clampSide,tickSpeedNetMove:speed.netMove,
+        tickSpeedUpTicks:speed.upTicks,tickSpeedDownTicks:speed.downTicks,
+        directionAgreement:forecast.side!=='WAIT'&&speed.clampSide===forecast.side,
+        mode:'READ_ONLY_COMPARISON',speedIndicatorHasTradeAuthority:false,
+        stopLossUnchanged:true,profitClampUnchanged:true,automatedTrading:false
+      }));
+    }catch(error){
+      res.writeHead(503);res.end(JSON.stringify({error:'SPEED_COMPARISON_UNAVAILABLE',detail:String(error?.message||error).slice(0,100)}));
+    }
+    return;
+  }
   if(req.url?.startsWith('/setting2-fast-forecast?')) {
     try {
       const parsed=new URL(req.url,'http://localhost');
