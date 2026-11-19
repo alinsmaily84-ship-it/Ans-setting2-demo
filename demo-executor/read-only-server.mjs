@@ -2,6 +2,8 @@ import {createServer} from 'node:http';
 import {timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
+import {fetchDemoPrice,createPriceHistory} from './demo-price-feed.mjs';
+const observedPrices=createPriceHistory({limit:120});
 const port=Number(process.env.PORT||3000);
 const host='0.0.0.0';
 const startedAt=Date.now();
@@ -56,6 +58,18 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
+  if(req.url?.startsWith('/demo-price?')) {
+    try {
+      const parsed=new URL(req.url,'http://localhost');
+      const symbol=parsed.searchParams.get('symbol');
+      const tick=await fetchDemoPrice(symbol);
+      const prices=observedPrices.push(tick);
+      res.writeHead(200);res.end(JSON.stringify({...tick,samples:prices.length,history:prices.slice(-12),mode:'READ_ONLY',automatedTrading:false}));
+    } catch(error) {
+      res.writeHead(503);res.end(JSON.stringify({error:'DEMO_PRICE_UNAVAILABLE',detail:String(error.message).slice(0,90)}));
+    }
+    return;
+  }
   if(req.url==='/health') {res.writeHead(200);res.end(JSON.stringify({status:'ok',venue:'BINANCE_FUTURES_DEMO',execution:'DISABLED',uptimeMs:Date.now()-startedAt}));return;}
   if(req.url==='/readiness') {
     const credentialsPresent=Boolean(process.env.BINANCE_DEMO_API_KEY&&process.env.BINANCE_DEMO_API_SECRET);
