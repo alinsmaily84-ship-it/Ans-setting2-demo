@@ -6,6 +6,7 @@ import {createHmac} from 'node:crypto';
 const ORIGIN='https://demo-fapi.binance.com';
 const PATHS=Object.freeze({
   marketOrder:'/fapi/v1/order',
+  protectiveAlgoOrder:'/fapi/v1/algoOrder',
   orderStatus:'/fapi/v1/order',
   openAlgoOrders:'/fapi/v1/openAlgoOrders'
 });
@@ -13,6 +14,7 @@ const PATHS=Object.freeze({
 export function prepareSignedDemoRequest({kind,apiKey,apiSecret,params={},timestamp=Date.now()}) {
   const spec={
     marketOrder:{method:'POST',path:PATHS.marketOrder},
+    protectiveAlgoOrder:{method:'POST',path:PATHS.protectiveAlgoOrder},
     orderStatus:{method:'GET',path:PATHS.orderStatus},
     openAlgoOrders:{method:'GET',path:PATHS.openAlgoOrders}
   }[kind];
@@ -22,7 +24,9 @@ export function prepareSignedDemoRequest({kind,apiKey,apiSecret,params={},timest
   if(!Number.isSafeInteger(timestamp))throw new Error('DEMO_TIMESTAMP_INVALID');
   // Permit only the exact order fields used by the Demo executor.
   // Never allow a caller to smuggle alternate order types or arbitrary parameters.
-  const allowed=kind==='marketOrder'
+  const allowed=kind==='protectiveAlgoOrder'
+    ? new Set(['algoType','symbol','side','type','triggerPrice','workingType','closePosition','positionSide','clientAlgoId'])
+    : kind==='marketOrder'
     ? new Set(['symbol','side','type','quantity','reduceOnly','newClientOrderId'])
     : kind==='orderStatus'
       ? new Set(['symbol','orderId'])
@@ -49,6 +53,18 @@ export function prepareSignedDemoRequest({kind,apiKey,apiSecret,params={},timest
        (params.reduceOnly!==undefined && params.reduceOnly!==true && params.reduceOnly!=='true') ||
        (params.newClientOrderId!==undefined && !/^[A-Za-z0-9_-]{1,36}$/.test(params.newClientOrderId)))
       throw new Error('DEMO_MARKET_ORDER_INVALID');
+  }
+  if(kind==='protectiveAlgoOrder'){
+    if(params.algoType!=='CONDITIONAL' || params.type!=='STOP_MARKET' ||
+       !/^[A-Z0-9]+USDT$/.test(params.symbol||'') ||
+       !['BUY','SELL'].includes(params.side) ||
+       !(Number(params.triggerPrice)>0) ||
+       !Number.isFinite(Number(params.triggerPrice)) ||
+       params.workingType!=='MARK_PRICE' ||
+       (params.closePosition!==true && params.closePosition!=='true') ||
+       (params.positionSide!==undefined && !['BOTH','LONG','SHORT'].includes(params.positionSide)) ||
+       (params.clientAlgoId!==undefined && !/^[A-Za-z0-9_-]{1,36}$/.test(params.clientAlgoId)))
+      throw new Error('DEMO_PROTECTIVE_ALGO_INVALID');
   }
   query.set('timestamp',String(timestamp));
   query.set('recvWindow','5000');
