@@ -96,6 +96,7 @@ const server=createServer(async(req,res)=>{
     res.writeHead(200);res.end(`<!doctype html><html lang="ar" dir="rtl"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ANS Setting2 Demo</title><style>body{font:16px system-ui;max-width:480px;margin:36px auto;padding:16px;background:#101723;color:#fff}input,select,button{box-sizing:border-box;width:100%;padding:14px;margin:7px 0;border-radius:9px;border:1px solid #596273;font:inherit}button{background:#267f63;color:white;font-weight:700}button.close{background:#b35b38}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#1e2938;padding:12px;border-radius:8px}</style><h2>ANS Setting2 — Binance Demo</h2><p>أوامر فعلية على حساب Demo فقط. ليست استراتيجية تلقائية.</p><input id="token" type="password" autocomplete="off" placeholder="رمز المشغّل"><input id="symbol" value="SOLUSDT" placeholder="العملة"><select id="direction"><option>LONG</option><option>SHORT</option></select><input id="quantity" inputmode="decimal" placeholder="الكمية (عدد الوحدات، وليس USDT)"><button id="open">فتح صفقة Demo</button><button class="close" id="close">إغلاق مركز العملة بالكامل</button><pre id="result">لم يُرسل أي أمر</pre><script>async function trade(action){const out=document.getElementById('result');const symbol=document.getElementById('symbol').value.trim().toUpperCase();const body={action,symbol};if(action==='open'){body.direction=document.getElementById('direction').value;body.quantity=document.getElementById('quantity').value;}if(!confirm(action==='open'?'إرسال أمر فتح حقيقي إلى Binance Demo؟':'إغلاق مركز '+symbol+' على Binance Demo؟'))return;out.textContent='جارٍ إرسال الأمر والتحقق...';try{const response=await fetch('/manual-trade',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+document.getElementById('token').value},body:JSON.stringify(body)});out.textContent='HTTP '+response.status+'\\n'+JSON.stringify(await response.json(),null,2);}catch(e){out.textContent=String(e)}}document.getElementById('open').onclick=()=>trade('open');document.getElementById('close').onclick=()=>trade('close');</script></html>`);
     return;
   }
+let protectedProbeInFlight=false;
   if(req.method==='POST' && req.url==='/protected-demo-probe') {
     const token=process.env.ANS_DEMO_OPERATOR_TOKEN||'';
     const provided=String(req.headers.authorization||'').replace(/^Bearer /,'');
@@ -106,6 +107,8 @@ const server=createServer(async(req,res)=>{
     if(process.env.ANS_DEMO_PROTECTED_PROBE!=='YES'){
       res.writeHead(403);res.end(JSON.stringify({error:'PROTECTED_DEMO_PROBE_DISABLED'}));return;
     }
+    if(protectedProbeInFlight){res.writeHead(409);res.end(JSON.stringify({error:'PROTECTED_PROBE_ALREADY_IN_FLIGHT'}));return;}
+    protectedProbeInFlight=true;
     try{
       let raw='';
       for await(const chunk of req){raw+=chunk;if(raw.length>512)throw Error('BODY_TOO_LARGE');}
@@ -126,7 +129,7 @@ const server=createServer(async(req,res)=>{
         result:result.out.slice(0,8192),error:result.code===0?null:result.err.slice(0,1000)||'PROBE_NOT_CONFIRMED'}));
     }catch(error){
       res.writeHead(400);res.end(JSON.stringify({error:String(error.message).slice(0,100)}));
-    }
+    }finally{protectedProbeInFlight=false;}
     return;
   }
   if(req.method==='POST' && req.url==='/manual-trade') {
