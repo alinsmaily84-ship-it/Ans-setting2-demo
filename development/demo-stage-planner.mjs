@@ -20,9 +20,9 @@ export function recordConfirmedProbe({symbol, side, filledNotionalUsdt, filledAt
 // The direction and market data must be fresh and independently observed at review time.
 export function planProbeReview(probe, {nowMs, positionSide, marketDirection, currentNotionalUsdt, targetNotionalUsdt, directionObservedAtMs, addEligible}) {
   if (!probe || !["PROBE_CONFIRMED","RECHECK_PENDING"].includes(probe.phase) ||
-      !finiteTime(nowMs) || !validSide(positionSide) || !validSide(marketDirection) ||
+      !finiteTime(nowMs) || !validSide(positionSide) ||
       !validPositive(currentNotionalUsdt) || !validPositive(targetNotionalUsdt) ||
-      !finiteTime(directionObservedAtMs) || typeof addEligible !== "boolean")
+      typeof addEligible !== "boolean")
     throw new Error("REVIEW_INPUT_INVALID");
   if (nowMs < probe.nextReviewAtMs) return {action:"NOT_DUE", dueAtMs:probe.nextReviewAtMs};
   const elapsedSeconds=(nowMs-probe.filledAtMs)/1000;
@@ -30,6 +30,9 @@ export function planProbeReview(probe, {nowMs, positionSide, marketDirection, cu
   // closing an unexpanded probe does not require a new directional prediction.
   if (!addEligible && elapsedSeconds >= demoStrategy.staleProbeReviewSeconds)
     return {action:"CLOSE_PROBE_PROPOSAL", executable:false, reason:"NO_ADD_AT_60_SECONDS"};
+  // Market direction is mandatory for an add decision, but not for the no-add exit.
+  if (!validSide(marketDirection) || !finiteTime(directionObservedAtMs))
+    return {action:"DIRECTION_UNAVAILABLE", executable:false};
   if (directionObservedAtMs > nowMs + 1000 || nowMs - directionObservedAtMs > 5000)
     return {action:"DIRECTION_STALE", executable:false};
   if (!addEligible) {
