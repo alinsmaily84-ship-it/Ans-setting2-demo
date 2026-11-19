@@ -30,7 +30,7 @@ export async function inspectDemoProtection({apiKey,apiSecret,fetchImpl,nowMs,ma
   return {
     venue:'BINANCE_FUTURES_DEMO',readOnly:true,executionEnabled:false,
     observedAt:snapshot.observedAt,exposure,reports,
-    allOpenPositionsProtected:reports.every(x=>x.protected===true),
+    allOpenPositionsProtected:exposure.openPositionCount>0 && reports.length===exposure.openPositionCount && reports.every(x=>x.protected===true),
     note:'A matching stop is a point-in-time observation, not a guarantee of execution or maximum loss.'
   };
 }
