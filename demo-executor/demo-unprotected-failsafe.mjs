@@ -6,7 +6,7 @@ export async function flattenUnprotectedDemoProbe({symbol,side,apiKey,apiSecret,
  if(!explicitDemoAuthorization)return {action:'NO_ACTION',reason:'AUTHORIZATION_REQUIRED'};
  if(!/^[A-Z0-9]+USDT$/.test(symbol||'')||!['BUY','SELL'].includes(side))throw Error('INVALID_PROBE');
  // Never flatten a position unless a pre-entry snapshot proves it was absent.
- if(!Array.isArray(beforePositions)||beforePositions.some(p=>p.symbol===symbol&&(!Number.isFinite(Number(p.positionAmt))||Number(p.positionAmt)!==0)))
+ if(!Array.isArray(beforePositions)||!beforePositions.some(p=>p.symbol===symbol&&Number.isFinite(Number(p.positionAmt))&&Number(p.positionAmt)===0)||beforePositions.some(p=>p.symbol===symbol&&(!Number.isFinite(Number(p.positionAmt))||Number(p.positionAmt)!==0)))
   return {action:'MANUAL_RECONCILIATION_REQUIRED',reason:'CLEAN_PRE_ENTRY_SNAPSHOT_REQUIRED'};
  let snapshot;
  try{snapshot=await fetchDemoAccountSnapshot({apiKey,apiSecret,fetchImpl});}
