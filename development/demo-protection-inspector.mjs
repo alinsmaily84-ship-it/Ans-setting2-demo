@@ -14,6 +14,10 @@ export async function inspectDemoProtection({apiKey,apiSecret,fetchImpl,nowMs,ma
     if(!Number.isFinite(qty)||qty===0) continue;
     const symbol=position.symbol;
     const market=marketBySymbol[symbol];
+    if (position.positionSide && position.positionSide!=='BOTH') {
+      reports.push({symbol,protected:false,reason:'HEDGE_MODE_STOP_REQUIRES_VERIFIED_EXCHANGE_SUPPORT'});
+      continue;
+    }
     if(!market || !Number.isFinite(market.markPrice) || !Number.isFinite(market.tickSize))
       {reports.push({symbol,protected:false,reason:'MARKET_REFERENCE_MISSING'});continue;}
     let proposed;
