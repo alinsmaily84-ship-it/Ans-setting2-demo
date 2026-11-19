@@ -32,10 +32,20 @@ export async function executeOneDemoProtectedProbe({
   submitted=await sendExplicitDemoRequest({kind:'marketOrder',apiKey,apiSecret,fetchImpl,
    params:{symbol,side,type:'MARKET',quantity:planned.quantity,newClientOrderId:clientOrderId}});
  }catch{
-  return {action:'ENTRY_OUTCOME_UNKNOWN',reason:'RECONCILE_EXCHANGE_BEFORE_RETRY',clientOrderId,ordersPlaced:'unknown'};
+  // An HTTP timeout does not imply rejection. Resolve by the unique client ID
+  // before deciding whether an exposed position needs an immediate guarded exit.
+  try {
+   const status=await sendExplicitDemoRequest({kind:'orderStatus',apiKey,apiSecret,fetchImpl,
+    params:{symbol,origClientOrderId:clientOrderId}});
+   if(status?.orderId)submitted=status;
+  }catch{
+   return {action:'ENTRY_OUTCOME_UNKNOWN',reason:'RECONCILE_EXCHANGE_BEFORE_RETRY',
+    clientOrderId,ordersPlaced:'unknown',riskReviewRequired:true};
+  }
  }
  if(!submitted?.orderId)
-  return {action:'ENTRY_ACCEPTANCE_UNCONFIRMED',clientOrderId,ordersPlaced:1,exchangeProtectionConfirmed:false};
+  return {action:'ENTRY_ACCEPTANCE_UNCONFIRMED',clientOrderId,ordersPlaced:'unknown',
+   exchangeProtectionConfirmed:false,riskReviewRequired:true};
  let orderStatus,after;
  try{
   orderStatus=await sendExplicitDemoRequest({kind:'orderStatus',apiKey,apiSecret,fetchImpl,
