@@ -20,3 +20,19 @@ export function prepareDemoDecisionHandoff({probe,review,exchangeSymbol,price}) 
     decision,order,executionEnabled:false,ordersPlaced:0,
     note:'Sizing only. No exchange order, fill, or stop has been confirmed.'};
 }
+
+import {planStopAfterFill} from './demo-protection-planner.mjs';
+
+// Prepare protection only from a confirmed exchange position, never from an unfilled order.
+// A proposed stop is not considered protection until Binance accepts and reports it.
+export function prepareConfirmedFillProtection({symbol,positionQty,entryPrice,markPrice,tickSize}) {
+  const primary=planStopAfterFill({symbol,positionQty,entryPrice,markPrice,tickSize,maxLossUsdt:5});
+  const backup=planStopAfterFill({symbol,positionQty,entryPrice,markPrice,tickSize,maxLossUsdt:10});
+  return {
+    symbol,primary,backup,
+    readyForSubmission:primary.valid===true,
+    exchangeProtectionConfirmed:false,
+    executionEnabled:false,ordersPlaced:0,
+    note:'An executor must submit and verify the protective order before claiming protection.'
+  };
+}
