@@ -46,3 +46,10 @@ test('never flattens pre-existing exposure without clean baseline',async()=>{
  assert.equal(result.reason,'CLEAN_PRE_ENTRY_SNAPSHOT_REQUIRED');
  assert.equal(x.calls.length,0);
 });
+
+test('missing symbol in baseline does not authorize a flatten',async()=>{
+ const x=fakeFetch();
+ const result=await flattenUnprotectedDemoProbe({symbol:'SOLUSDT',side:'BUY',apiKey:'k',apiSecret:'s',fetchImpl:x.fetchImpl,beforePositions:[{symbol:'BTCUSDT',positionAmt:'0'}],explicitDemoAuthorization:true});
+ assert.equal(result.reason,'CLEAN_PRE_ENTRY_SNAPSHOT_REQUIRED');
+ assert.equal(x.calls.length,0);
+});
