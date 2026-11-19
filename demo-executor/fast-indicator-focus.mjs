@@ -2,7 +2,7 @@
 // This is market-data-only; no orders, timers, or trading decisions.
 export const FAST_WINDOW_MS=5000;
 export const MAX_CANDIDATES=10;
-export const MAX_OPEN_POSITIONS=5;
+export const MAX_OPEN_POSITIONS=10;
 const valid=s=>typeof s==='string'&&/^[A-Z0-9]+USDT$/.test(s);
 export function selectFastIndicatorSymbols({positions=[],rankedCandidates=[]}={}){
  if(!Array.isArray(positions)||!Array.isArray(rankedCandidates))throw Error('INVALID_INDICATOR_INPUT');
