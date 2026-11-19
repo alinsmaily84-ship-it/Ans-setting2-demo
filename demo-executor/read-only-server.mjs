@@ -1,6 +1,8 @@
 import {createServer} from 'node:http';
 import {selectFastIndicatorSymbols,FAST_WINDOW_MS} from './fast-indicator-focus.mjs';
 import {rankDemoMarketSpeed} from './demo-market-speed-ranking.mjs';
+import {DemoPriceStream} from './price-stream.mjs';
+import {FastPriceWindow} from './fast-indicator-focus.mjs';
 import {timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
@@ -15,6 +17,9 @@ import {compareClampDirection} from './clamp-direction-shadow.mjs';
 import {previewSpeedFirstDecision} from './setting2-speed-first-preview.mjs';
 import {previewSetting2Entry} from './setting2-entry-decision-preview.mjs';
 const observedPrices=createPriceHistory({limit:120});
+let focusedStream=null;
+let focusedSymbols=[];
+const fastPriceWindow=new FastPriceWindow();
 let speedRankingCache=null;
 let speedRankingInFlight=null;
 async function getSpeedRanking(client){
@@ -98,6 +103,20 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
+  if(req.url==='/fast-indicator-live') {
+    try{
+      if(!focusedStream){res.writeHead(503);res.end(JSON.stringify({error:'FOCUSED_STREAM_NOT_STARTED',mode:'READ_ONLY'}));return;}
+      const data=focusedSymbols.map(symbol=>{
+        const latest=focusedStream.read(symbol);
+        return {symbol,fresh:latest.ok,reason:latest.ok?null:latest.reason,
+          price:latest.snapshot?.price??null,metrics:focusedStream.report(symbol),
+          fiveSecondWindow:fastPriceWindow.read(symbol)};
+      });
+      res.writeHead(200);res.end(JSON.stringify({mode:'READ_ONLY',windowMs:FAST_WINDOW_MS,
+        streamConnected:focusedStream.socket?.readyState===1,prices:data,automatedTrading:false}));
+    }catch(error){res.writeHead(503);res.end(JSON.stringify({error:'FOCUSED_STREAM_UNAVAILABLE',detail:String(error.message).slice(0,100)}));}
+    return;
+  }
   if(req.url==='/fast-indicator-focus') {
     try {
       const key=process.env.BINANCE_DEMO_API_KEY,secret=process.env.BINANCE_DEMO_API_SECRET;
@@ -105,10 +124,24 @@ const server=createServer(async(req,res)=>{
       const client=new BinanceDemoClient({apiKey:key,apiSecret:secret});
       const [positions,ranking]=await Promise.all([client.positions(),getSpeedRanking(client)]);
       const focus=selectFastIndicatorSymbols({positions,rankedCandidates:ranking.ranked});
+      const nextSymbols=focus.all;
+      if(nextSymbols.length&&nextSymbols.join(',')!==focusedSymbols.join(',')){
+        const stream=new DemoPriceStream({symbols:nextSymbols});
+        const originalIngest=stream.indicator.ingest.bind(stream.indicator);
+        stream.indicator.ingest=(message,receivedAt)=>{
+          const result=originalIngest(message,receivedAt);
+          if(result.ok)fastPriceWindow.ingest({symbol:result.snapshot.symbol,price:result.snapshot.price,receivedAt});
+          return result;
+        };
+        stream.connect();
+        const previous=focusedStream;
+        focusedStream=stream;focusedSymbols=nextSymbols;
+        previous?.disconnect();
+      }
       res.writeHead(200);res.end(JSON.stringify({
         ...focus,windowMs:FAST_WINDOW_MS,
         source:'BINANCE_FUTURES_DEMO',mode:'READ_ONLY',
-        candidatesConnected:true,rankingScanned:ranking.scanned,rankingSuccessful:ranking.successful,rankingFailed:ranking.failed,rankingComplete:ranking.complete,priceStreamConnected:false,
+        candidatesConnected:true,rankingScanned:ranking.scanned,rankingSuccessful:ranking.successful,rankingFailed:ranking.failed,rankingComplete:ranking.complete,priceStreamConnected:focusedStream?.socket?.readyState===1,
         tradingEnabled:false
       }));
     }catch(error){
