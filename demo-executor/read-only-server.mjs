@@ -55,6 +55,37 @@ const port=Number(process.env.PORT||3000);
 const host='0.0.0.0';
 const startedAt=Date.now();
 // Deliberately read-only until original strategy parity and exchange order safety are proven.
+// Start read-only focused price monitoring without requiring an HTTP visitor.
+// Refresh periodically to rotate candidates; never issue trading orders.
+async function refreshFocusedMarket(){
+  const key=process.env.BINANCE_DEMO_API_KEY,secret=process.env.BINANCE_DEMO_API_SECRET;
+  if(!key||!secret)return;
+  const client=new BinanceDemoClient({apiKey:key,apiSecret:secret});
+  const [positions,ranking]=await Promise.all([client.positions(),getSpeedRanking(client)]);
+  const focus=selectFastIndicatorSymbols({positions,rankedCandidates:ranking.ranked});
+  if(!focus.all.length||focus.all.join(',')===focusedSymbols.join(','))return;
+  const stream=new DemoPriceStream({symbols:focus.all});
+  const ingest=stream.indicator.ingest.bind(stream.indicator);
+  stream.indicator.ingest=(message,receivedAt)=>{
+    const result=ingest(message,receivedAt);
+    if(result.ok)fastPriceWindow.ingest({symbol:result.snapshot.symbol,price:result.snapshot.price,receivedAt});
+    return result;
+  };
+  stream.connect();
+  const previous=focusedStream;
+  focusedStream=stream;focusedSymbols=focus.all;
+  previous?.disconnect();
+}
+let focusRefreshBusy=false;
+async function scheduledFocusRefresh(){
+  if(focusRefreshBusy)return;
+  focusRefreshBusy=true;
+  try{await refreshFocusedMarket();}catch(error){console.error('Focused Demo market refresh failed:',String(error?.message||error).slice(0,120));}
+  finally{focusRefreshBusy=false;}
+}
+setTimeout(()=>void scheduledFocusRefresh(),1500);
+setInterval(()=>void scheduledFocusRefresh(),60000);
+
 const server=createServer(async(req,res)=>{
   res.setHeader('content-type','application/json; charset=utf-8');
   res.setHeader('cache-control','no-store');
