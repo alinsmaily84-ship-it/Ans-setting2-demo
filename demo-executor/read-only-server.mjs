@@ -101,6 +101,11 @@ const server=createServer(async(req,res)=>{
         tickSpeedSide:speed.clampSide,tickSpeedNetMove:speed.netMove,
         tickSpeedUpTicks:speed.upTicks,tickSpeedDownTicks:speed.downTicks,
         directionAgreement:forecast.side!=='WAIT'&&speed.clampSide===forecast.side,
+        directionConflict:forecast.side!=='WAIT'&&speed.clampSide!=='WAIT'&&speed.clampSide!==forecast.side,
+        tickSpeedMovePct:prices.length>=9?Number(((prices.at(-1)/prices.at(-9)-1)*100).toFixed(6)):null,
+        lastTickObservedAt:monitor.lastTick?.observedAt??null,
+        tickFeedFresh:monitor.lastTick?Date.now()-monitor.lastTick.observedAt<=10000:false,
+        originalFastForecastHasPriority:true,
         mode:'READ_ONLY_COMPARISON',speedIndicatorHasTradeAuthority:false,
         stopLossUnchanged:true,profitClampUnchanged:true,automatedTrading:false
       }));
