@@ -2,6 +2,7 @@
 // Explicit single-probe Binance Futures Demo execution. Not a scheduler.
 // Never use with Live credentials. Only runs when explicitly invoked by operator.
 import {BinanceDemoClient} from './binance-demo-client.mjs';
+import {fetchDemoPrice} from './demo-price-feed.mjs';
 import {executeOneDemoProtectedProbe} from './demo-one-shot-entry.mjs';
 
 const [symbol,side]=process.argv.slice(2);
@@ -17,7 +18,7 @@ if(!/^[A-Z0-9]+USDT$/.test(symbol||'')||!['BUY','SELL'].includes(side)){
   const client=new BinanceDemoClient({apiKey,apiSecret});
   const [exchange,ticker,mark]=await Promise.all([
    client.exchangeInfo(),
-   client.request('GET','/fapi/v1/tickerPrice',{symbol},false),
+   fetchDemoPrice(symbol),
    client.request('GET','/fapi/v1/premiumIndex',{symbol},false)
   ]);
   const exchangeSymbol=exchange.symbols?.find(s=>s.symbol===symbol);
