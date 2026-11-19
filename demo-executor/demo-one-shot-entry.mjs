@@ -1,5 +1,6 @@
 // One-shot Demo entry -> fill -> primary stop. No scheduler, no Live.
 import {randomUUID} from 'node:crypto';
+import {demoStrategy} from './demo-strategy-contract.mjs';
 import {fetchDemoAccountSnapshot} from './demo-account-reader.mjs';
 import {prepareDemoProbe} from './demo-order-preparation.mjs';
 import {sendExplicitDemoRequest} from './demo-order-transport.mjs';
@@ -21,7 +22,7 @@ export async function executeOneDemoProtectedProbe({
  const exposure=before.positions.filter(p=>Number(p.positionAmt)!==0);
  if(before.positions.some(p=>p.positionAmt===null || p.positionAmt===undefined || !Number.isFinite(Number(p.positionAmt))))
   return {action:'NOT_SUBMITTED',reason:'POSITION_SNAPSHOT_INVALID',ordersPlaced:0};
- if(exposure.length>=5 || exposure.some(p=>p.symbol===symbol))
+ if(exposure.length>=demoStrategy.concurrentPositions || exposure.some(p=>p.symbol===symbol))
   return {action:'NOT_SUBMITTED',reason:'EXPOSURE_REQUIRES_RECONCILIATION',ordersPlaced:0};
  // Stable client identifier allows a timed-out submission to be traced on Binance.
  // Never resubmit a market order merely because the HTTP response was lost.
