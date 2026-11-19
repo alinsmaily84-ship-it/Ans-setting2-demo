@@ -6,6 +6,7 @@ import {prepareDemoMarketOrder,prepareDemoProbe} from './demo-order-preparation.
 import {recordConfirmedProbe,planProbeReview} from './demo-stage-planner.mjs';
 import {planStopAfterFill,profitFloorFromPeak} from './demo-protection-planner.mjs';
 import {auditDemoPositionProtection,auditDemoExposure} from './demo-exchange-audit.mjs';
+import {signDemoReadOnlyQuery,fetchDemoAccountSnapshot} from './demo-account-reader.mjs';
 
 const sym={symbol:'XRPUSDT',status:'TRADING',contractType:'PERPETUAL',quoteAsset:'USDT',filters:[
  {filterType:'MARKET_LOT_SIZE',stepSize:'0.1',minQty:'0.1',maxQty:'100000'},
@@ -65,4 +66,17 @@ test('Demo protection audit distinguishes proposed from confirmed exchange stops
  assert.equal(result.protected,true);
  assert.equal(result.stopOrderId,'42');
  assert.equal(auditDemoExposure({positions:[position],maxConcurrentPositions:5}).openPositionCount,1);
+});
+
+test('Demo signed reader is GET-only and fixed to Demo host',async()=>{
+ const calls=[];
+ const fakeFetch=async (url,opts)=>{
+  calls.push({url,method:opts.method});
+  return {ok:true,json:async()=>[]};
+ };
+ const result=await fetchDemoAccountSnapshot({apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl:fakeFetch,nowMs:1700000000000});
+ assert.equal(result.readOnly,true);
+ assert.equal(calls.length,2);
+ assert.ok(calls.every(x=>x.method==='GET'&&x.url.startsWith('https://demo-fapi.binance.com/')));
+ assert.throws(()=>signDemoReadOnlyQuery('/fapi/v1/order',{apiKey:'x',apiSecret:'y'}),/NOT_ALLOWLISTED/);
 });
