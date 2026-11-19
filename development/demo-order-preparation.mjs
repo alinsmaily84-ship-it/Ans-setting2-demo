@@ -1,0 +1,47 @@
+// Binance Futures DEMO order-preparation module.
+// This module never submits orders. It prepares quantities and validates exchange filters.
+// Explicitly refuses Live URLs and makes no network requests.
+import { demoStrategy } from "./demo-strategy-contract.mjs";
+
+function decimalPlaces(step) {
+  const s = String(step);
+  if (!/^(?:0|[1-9]\d*)(?:\.\d+)?$/.test(s) || !(Number(s)>0)) throw new Error("INVALID_STEP_SIZE");
+  return (s.split(".")[1] || "").length;
+}
+
+export function prepareDemoMarketOrder({symbol, side, desiredNotionalUsdt, price, exchangeSymbol}) {
+  if (demoStrategy.venue !== "BINANCE_FUTURES_DEMO" || demoStrategy.executionEnabled)
+    throw new Error("DEMO_PREVIEW_ONLY");
+  if (!exchangeSymbol || exchangeSymbol.symbol !== symbol ||
+      exchangeSymbol.status !== "TRADING" ||
+      exchangeSymbol.contractType !== "PERPETUAL" ||
+      exchangeSymbol.quoteAsset !== "USDT") throw new Error("SYMBOL_NOT_ELIGIBLE");
+  if (!["BUY","SELL"].includes(side) || !Number.isFinite(desiredNotionalUsdt) ||
+      desiredNotionalUsdt <= 0 || !Number.isFinite(price) || price <= 0)
+    throw new Error("ORDER_INPUT_INVALID");
+  const filters = Array.isArray(exchangeSymbol.filters) ? exchangeSymbol.filters : [];
+  const lot = filters.find(x=>x.filterType==="MARKET_LOT_SIZE") || filters.find(x=>x.filterType==="LOT_SIZE");
+  if (!lot) throw new Error("LOT_FILTER_MISSING");
+  const step=Number(lot.stepSize), digits=decimalPlaces(lot.stepSize);
+  const raw=desiredNotionalUsdt/price;
+  // Exchange quantity must be rounded DOWN, never rounded up beyond the requested notional.
+  const units=Math.floor(raw/step + 1e-10);
+  const quantity=Number((units*step).toFixed(digits));
+  const actualNotionalUsdt=quantity*price;
+  const minNotional=Number(filters.find(x=>x.filterType==="MIN_NOTIONAL")?.notional ?? 0);
+  const minQty=Number(lot.minQty),maxQty=Number(lot.maxQty);
+  const reasons=[];
+  if (!(quantity>0) || quantity<minQty) reasons.push("BELOW_MIN_QTY");
+  if (quantity>maxQty) reasons.push("ABOVE_MAX_QTY");
+  if (actualNotionalUsdt<minNotional) reasons.push("BELOW_MIN_NOTIONAL");
+  if (actualNotionalUsdt>desiredNotionalUsdt+1e-7) reasons.push("EXCEEDS_REQUESTED_NOTIONAL");
+  return Object.freeze({
+    venue:"BINANCE_FUTURES_DEMO",symbol,side,quantity:quantity.toFixed(digits),
+    requestedNotionalUsdt:desiredNotionalUsdt,actualNotionalUsdt,
+    valid:reasons.length===0,reasons,executionEnabled:false
+  });
+}
+
+export function prepareDemoProbe(input) {
+  return prepareDemoMarketOrder({...input,desiredNotionalUsdt:demoStrategy.probeNotionalUsdt});
+}
