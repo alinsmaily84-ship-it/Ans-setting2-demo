@@ -63,6 +63,8 @@ export function prepareSignedDemoRequest({kind,apiKey,apiSecret,params={},timest
        params.workingType!=='MARK_PRICE' ||
        (params.closePosition!==true && params.closePosition!=='true') ||
        (params.positionSide!==undefined && !['BOTH','LONG','SHORT'].includes(params.positionSide)) ||
+       (params.positionSide==='LONG' && params.side!=='SELL') ||
+       (params.positionSide==='SHORT' && params.side!=='BUY') ||
        (params.clientAlgoId!==undefined && !/^[A-Za-z0-9_-]{1,36}$/.test(params.clientAlgoId)))
       throw new Error('DEMO_PROTECTIVE_ALGO_INVALID');
   }
