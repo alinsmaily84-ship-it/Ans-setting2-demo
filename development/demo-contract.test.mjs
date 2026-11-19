@@ -88,7 +88,7 @@ test('Demo inspector verifies a real snapshot shape, not an assumed protection s
   ok:true,
   json:async()=>url.includes('positionRisk')
    ?[{symbol:'XRPUSDT',positionAmt:'100',entryPrice:'2'}]
-   :[{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95',algoId:42}]
+   :[{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.98',algoId:42}]
  });
  const args={apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl,nowMs:1700000000000,
   marketBySymbol:{XRPUSDT:{markPrice:2,tickSize:0.001}}};
@@ -109,7 +109,7 @@ test('one-shot Demo runner reads public market data and private positions withou
    const data=url.includes('exchangeInfo')?{symbols:[{symbol:'XRPUSDT',filters:[{filterType:'PRICE_FILTER',tickSize:'0.001'}]}]}:
      url.includes('premiumIndex')?[{symbol:'XRPUSDT',markPrice:'2'}]:
      url.includes('positionRisk')?[{symbol:'XRPUSDT',positionAmt:'100',entryPrice:'2'}]:
-     [{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95',algoId:42}];
+     [{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.98',algoId:42}];
    return {ok:true,json:async()=>data};
  };
  const report=await runDemoInspection({apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl:fakeFetch,nowMs:1700000000000});
@@ -165,7 +165,7 @@ test('stop price rounding does not increase planned loss beyond primary two USDT
 test('hedge-mode position cannot be certified by an unverified close-all stop',async()=>{
  const fetchImpl=async url=>({ok:true,json:async()=>url.includes('positionRisk')
    ?[{symbol:'XRPUSDT',positionAmt:'100',positionSide:'LONG',entryPrice:'2'}]
-   :[{symbol:'XRPUSDT',side:'SELL',positionSide:'LONG',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.95'}]});
+   :[{symbol:'XRPUSDT',side:'SELL',positionSide:'LONG',algoStatus:'NEW',orderType:'STOP_MARKET',workingType:'MARK_PRICE',closePosition:true,triggerPrice:'1.98'}]});
  const report=await inspectDemoProtection({apiKey:'demo-key',apiSecret:'demo-secret',fetchImpl,nowMs:1700000000000,marketBySymbol:{XRPUSDT:{markPrice:2,tickSize:0.001}}});
  assert.equal(report.allOpenPositionsProtected,false);
  assert.equal(report.reports[0].reason,'HEDGE_MODE_STOP_REQUIRES_VERIFIED_EXCHANGE_SUPPORT');
