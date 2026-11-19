@@ -109,7 +109,11 @@ const server=createServer(async(req,res)=>{
         tickSpeedMovePct:prices.length>=9?Number(((prices.at(-1)/prices.at(-9)-1)*100).toFixed(6)):null,
         lastTickObservedAt:monitor.lastTick?.observedAt??null,
         tickFeedFresh:monitor.lastTick?Date.now()-monitor.lastTick.observedAt<=10000:false,
-        originalFastForecastHasPriority:true,
+        originalFastForecastHasPriority:false,
+        forecastRole:'PREVIEW_ONLY_NOT_ORIGINAL_ACTIVE_DECISION',
+        originalActiveMode:'UNVERIFIED',
+        originalHybridPath:'momentum15m_THEN_horizonFusionSignal',
+        originalMomentumPath:'momentum15m',
         mode:'READ_ONLY_COMPARISON',speedIndicatorHasTradeAuthority:false,
         stopLossUnchanged:true,profitClampUnchanged:true,automatedTrading:false
       }));
