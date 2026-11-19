@@ -1,4 +1,5 @@
 import {createServer} from 'node:http';
+import {selectFastIndicatorSymbols,FAST_WINDOW_MS} from './fast-indicator-focus.mjs';
 import {timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
@@ -85,6 +86,25 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
+  if(req.url==='/fast-indicator-focus') {
+    try {
+      const key=process.env.BINANCE_DEMO_API_KEY,secret=process.env.BINANCE_DEMO_API_SECRET;
+      if(!key||!secret)throw Error('DEMO_ACCOUNT_UNAVAILABLE');
+      const client=new BinanceDemoClient({apiKey:key,apiSecret:secret});
+      const positions=await client.positions();
+      // Ranked candidate data is not yet connected; never invent a top-ten ranking.
+      const focus=selectFastIndicatorSymbols({positions,rankedCandidates:[]});
+      res.writeHead(200);res.end(JSON.stringify({
+        ...focus,windowMs:FAST_WINDOW_MS,
+        source:'BINANCE_FUTURES_DEMO',mode:'READ_ONLY',
+        candidatesConnected:false,priceStreamConnected:false,
+        tradingEnabled:false
+      }));
+    }catch(error){
+      res.writeHead(503);res.end(JSON.stringify({error:'FAST_INDICATOR_FOCUS_UNAVAILABLE',detail:String(error?.message||error).slice(0,100)}));
+    }
+    return;
+  }
   if(req.url==='/setting2-speed-comparison') {
     try {
       const symbol=monitor.symbol;
