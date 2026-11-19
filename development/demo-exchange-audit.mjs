@@ -9,12 +9,18 @@ export function auditDemoPositionProtection({symbol, position, algoOrders, expec
   const qty=Number(position.positionAmt);
   if (!Number.isFinite(qty)) throw new Error('POSITION_QTY_INVALID');
   if (qty===0) return {symbol,positionOpen:false,protected:null,reason:'NO_OPEN_POSITION'};
+  // Hedge-mode legs require matching positionSide; a stop for the other leg is not protection.
+  const leg=position.positionSide || 'BOTH';
+  if (!['BOTH','LONG','SHORT'].includes(leg) ||
+      (leg==='LONG' && qty<0) || (leg==='SHORT' && qty>0))
+    return {symbol,positionOpen:true,protected:false,reason:'POSITION_LEG_INCONSISTENT'};
   const expectedSide=qty>0?'SELL':'BUY';
   if (expectedStopSide!==expectedSide)
     return {symbol,positionOpen:true,protected:false,reason:'STOP_SIDE_MISMATCH'};
   const active=algoOrders.filter(o=>
     o.symbol===symbol &&
     o.side===expectedSide &&
+    (o.positionSide||'BOTH')===leg &&
     ['NEW','WORKING','PENDING'].includes(String(o.algoStatus||o.status||'').toUpperCase()) &&
     (o.orderType||o.type)==='STOP_MARKET' &&
     (o.closePosition===true||o.closePosition==='true') &&
@@ -34,7 +40,9 @@ export function auditDemoPositionProtection({symbol, position, algoOrders, expec
 export function auditDemoExposure({positions, maxConcurrentPositions=5}) {
   if (!Array.isArray(positions) || !Number.isSafeInteger(maxConcurrentPositions) || maxConcurrentPositions<1)
     throw new Error('EXPOSURE_AUDIT_INPUT_INVALID');
-  const open=positions.filter(p=>Number.isFinite(Number(p.positionAmt)) && Number(p.positionAmt)!==0);
+  const invalidPositions=positions.filter(p=>!Number.isFinite(Number(p.positionAmt)));
+  if (invalidPositions.length) throw new Error('POSITION_QTY_INVALID');
+  const open=positions.filter(p=>Number(p.positionAmt)!==0);
   return {openPositionCount:open.length,withinLimit:open.length<=maxConcurrentPositions,
     openSymbols:[...new Set(open.map(p=>p.symbol))],executionEnabled:false};
 }
