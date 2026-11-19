@@ -4,6 +4,7 @@ import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
 import {fetchDemoPrice,createPriceHistory} from './demo-price-feed.mjs';
 import {fetchDemoCandles} from './demo-candle-feed.mjs';
+import {fetchSetting2MarketInputs} from './setting2-market-inputs.mjs';
 import {compareClampDirection} from './clamp-direction-shadow.mjs';
 const observedPrices=createPriceHistory({limit:120});
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
@@ -80,6 +81,17 @@ const server=createServer(async(req,res)=>{
     return;
   }
   if(req.method!=='GET'){res.writeHead(405);res.end(JSON.stringify({error:'METHOD_NOT_ALLOWED'}));return;}
+  if(req.url?.startsWith('/setting2-market-inputs?')) {
+    try {
+      const parsed=new URL(req.url,'http://localhost');
+      const symbol=parsed.searchParams.get('symbol');
+      const result=await fetchSetting2MarketInputs(symbol);
+      res.writeHead(200);res.end(JSON.stringify(result));
+    }catch(error){
+      res.writeHead(503);res.end(JSON.stringify({error:'MARKET_INPUTS_UNAVAILABLE',detail:String(error?.message||error).slice(0,100)}));
+    }
+    return;
+  }
   if(req.url?.startsWith('/demo-candles?')) {
     try {
       const parsed=new URL(req.url,'http://localhost');
