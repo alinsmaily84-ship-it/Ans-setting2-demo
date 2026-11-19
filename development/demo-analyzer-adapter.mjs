@@ -11,7 +11,7 @@ export function selectDemoCandidates(payload, { nowMs = Date.now(), maxAgeMs = 9
   const seen = new Set();
   const ranked = [];
   for (const item of payload.ranked) {
-    if (!item || !/^[A-Z0-9]{5,25}USDT$/.test(item.symbol || "") || seen.has(item.symbol)) continue;
+    if (!item || !/^[A-Z0-9]{1,25}USDT$/.test(item.symbol || "") || seen.has(item.symbol)) continue;
     if (!["LONG","SHORT"].includes(item.side)) continue;
     if (![item.price,item.m1,item.m5,item.m15,item.m60,item.speed15m].every(Number.isFinite) || item.price <= 0 || item.speed15m < 0) continue;
     const calculatedSpeed = Math.abs(item.m15) / demoStrategy.rankingWindowMinutes;
