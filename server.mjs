@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { prepareDemoProbe } from './development/demo-order-preparation.mjs';
+import { planStopAfterFill, profitFloorFromPeak } from './development/demo-protection-planner.mjs';
 // Isolated read-only deployment check. This does not run the Setting2 strategy.
 const startedAt = Date.now();
 const server = createServer(async (req,res)=>{
@@ -34,6 +35,22 @@ const server = createServer(async (req,res)=>{
       const preview=prepareDemoProbe({symbol,side,price:Number(price.price),exchangeSymbol});
       return send(200,{...preview,publicMarketDataOnly:true,ordersPlaced:0});
     }catch{return send(503,{error:'DEMO_PREVIEW_UNAVAILABLE',ordersPlaced:0});}
+  }
+  if(new URL(req.url,'http://localhost').pathname==='/demo-protection-preview'){
+    const url=new URL(req.url,'http://localhost');
+    const symbol=url.searchParams.get('symbol')||'';
+    const qty=Number(url.searchParams.get('positionQty'));
+    const entry=Number(url.searchParams.get('entryPrice'));
+    const mark=Number(url.searchParams.get('markPrice'));
+    const tick=Number(url.searchParams.get('tickSize'));
+    const peak=Number(url.searchParams.get('peakUsd'));
+    try {
+      if(![qty,entry,mark,tick,peak].every(Number.isFinite) || peak<0)
+        return send(400,{error:'INVALID_PROTECTION_PARAMETERS'});
+      const primary=planStopAfterFill({symbol,positionQty:qty,entryPrice:entry,markPrice:mark,tickSize:tick,maxLossUsdt:5});
+      const backup=planStopAfterFill({symbol,positionQty:qty,entryPrice:entry,markPrice:mark,tickSize:tick,maxLossUsdt:10});
+      return send(200,{venue:'BINANCE_FUTURES_DEMO',primary,backup,profit:profitFloorFromPeak(peak),executionEnabled:false,ordersPlaced:0,exchangeOrdersVerified:false});
+    }catch{return send(400,{error:'INVALID_PROTECTION_PARAMETERS',ordersPlaced:0});}
   }
   return send(404,{error:'NOT_FOUND'});
 });
