@@ -1,5 +1,6 @@
 import {createServer} from 'node:http';
 import {selectFastIndicatorSymbols,FAST_WINDOW_MS} from './fast-indicator-focus.mjs';
+import {rankDemoMarketSpeed} from './demo-market-speed-ranking.mjs';
 import {timingSafeEqual} from 'node:crypto';
 import {spawn} from 'node:child_process';
 import {BinanceDemoClient} from './binance-demo-client.mjs';
@@ -14,6 +15,17 @@ import {compareClampDirection} from './clamp-direction-shadow.mjs';
 import {previewSpeedFirstDecision} from './setting2-speed-first-preview.mjs';
 import {previewSetting2Entry} from './setting2-entry-decision-preview.mjs';
 const observedPrices=createPriceHistory({limit:120});
+let speedRankingCache=null;
+let speedRankingInFlight=null;
+async function getSpeedRanking(client){
+ if(speedRankingCache&&Date.now()-speedRankingCache.at<60000)return speedRankingCache.value;
+ if(!speedRankingInFlight)speedRankingInFlight=(async()=>{
+  const exchange=await client.exchangeInfo();
+  const value=await rankDemoMarketSpeed({exchangeSymbols:exchange.symbols});
+  speedRankingCache={at:Date.now(),value};return value;
+ })().finally(()=>{speedRankingInFlight=null});
+ return speedRankingInFlight;
+}
 const monitor={symbol:'SOLUSDT',lastTick:null,lastError:null,successes:0,failures:0,running:false};
 const shadow={last:null,counts:{LONG:0,SHORT:0,WAIT:0},errors:0};
 // Diagnostic read-only sampling; SOLUSDT is a test instrument, not a trading universe filter.
@@ -91,13 +103,12 @@ const server=createServer(async(req,res)=>{
       const key=process.env.BINANCE_DEMO_API_KEY,secret=process.env.BINANCE_DEMO_API_SECRET;
       if(!key||!secret)throw Error('DEMO_ACCOUNT_UNAVAILABLE');
       const client=new BinanceDemoClient({apiKey:key,apiSecret:secret});
-      const positions=await client.positions();
-      // Ranked candidate data is not yet connected; never invent a top-ten ranking.
-      const focus=selectFastIndicatorSymbols({positions,rankedCandidates:[]});
+      const [positions,ranking]=await Promise.all([client.positions(),getSpeedRanking(client)]);
+      const focus=selectFastIndicatorSymbols({positions,rankedCandidates:ranking.ranked});
       res.writeHead(200);res.end(JSON.stringify({
         ...focus,windowMs:FAST_WINDOW_MS,
         source:'BINANCE_FUTURES_DEMO',mode:'READ_ONLY',
-        candidatesConnected:false,priceStreamConnected:false,
+        candidatesConnected:true,rankingScanned:ranking.scanned,rankingSuccessful:ranking.successful,rankingFailed:ranking.failed,rankingComplete:ranking.complete,priceStreamConnected:false,
         tradingEnabled:false
       }));
     }catch(error){
