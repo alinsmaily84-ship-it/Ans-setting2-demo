@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {setting2InitialStop as calc} from './setting2-stop-parity.mjs';
+const base={strategyMode:'STANDARD',side:'LONG',price:100,signalStop:99,stopMode:'AUTO',microStopMode:'AUTO',manualStopPct:2,microManualStopPct:2,scalpFeePct:0.04,scalpSlippagePct:0.03,useGlobalRisk:false,globalSl:3};
+test('standard AUTO keeps ATR stop',()=>assert.equal(calc(base).stop,99));
+test('manual short keeps selected stop',()=>assert.equal(calc({...base,side:'SHORT',stopMode:'MANUAL'}).stop,102));
+test('momentum retains one percent',()=>assert.equal(calc({...base,strategyMode:'MOMENTUM'}).stop,99));
+test('hybrid retains 0.12–0.24 percent clamp',()=>assert.equal(calc({...base,strategyMode:'HYBRID'}).slPct,0.24));
+test('scalper FEES_ONLY uses cost formula',()=>assert.equal(calc({...base,strategyMode:'SCALPER',microStopMode:'FEES_ONLY'}).slPct,0.14));
+test('rejects unknown mode',()=>assert.throws(()=>calc({...base,strategyMode:'UNKNOWN'})));
