@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createClampExecutor} from './smart-clamp-executor.mjs';
+const tick={positionId:'p1',symbol:'SOLUSDT',side:'LONG',previousPrice:102,price:100,previousClampPrice:101,clampPrice:101};
+test('no market order until clamp touch',async()=>{let n=0;const run=createClampExecutor({closeMarket:async()=>{n++},verifyClosed:async()=>false});const x=await run({...tick,price:102});assert.equal(x.status,'MONITORING');assert.equal(n,0)});
+test('touch sends closing-only market request and confirms',async()=>{let n=0;const run=createClampExecutor({closeMarket:async x=>{n++;assert.equal(x.closeOnly,true);return {orderId:1}},verifyClosed:async x=>Boolean(x.order)});assert.equal((await run(tick)).status,'CLOSED_CONFIRMED');assert.equal(n,1)});
+test('exchange already closed: no duplicate order',async()=>{let n=0;const run=createClampExecutor({closeMarket:async()=>{n++},verifyClosed:async()=>true});assert.equal((await run(tick)).status,'ALREADY_CLOSED');assert.equal(n,0)});
+test('unconfirmed fill is not called closed',async()=>{const run=createClampExecutor({closeMarket:async()=>({orderId:2}),verifyClosed:async()=>false});assert.equal((await run(tick)).status,'CLOSE_UNCONFIRMED')});
+test('exchange error is not called closed',async()=>{const run=createClampExecutor({closeMarket:async()=>{throw Error('exchange timeout')},verifyClosed:async()=>false});assert.equal((await run(tick)).status,'CLOSE_ERROR_UNCONFIRMED')});
+test('simultaneous ticks do not dispatch duplicate close',async()=>{let release;let n=0;const gate=new Promise(r=>release=r);const run=createClampExecutor({closeMarket:async()=>{n++;await gate;return {orderId:3}},verifyClosed:async x=>Boolean(x.order)});const first=run(tick);await new Promise(r=>setImmediate(r));const second=await run(tick);assert.equal(second.status,'CLOSE_IN_PROGRESS');release();assert.equal((await first).status,'CLOSED_CONFIRMED');assert.equal(n,1)});
