@@ -12,8 +12,9 @@ export const demoStrategy = Object.freeze({
   staleProbeReviewSeconds: 60,
   rankingWindowMinutes: 15,
   profitProtectionArmUsdt: 0.10,
-  stopLossPrimaryUsdt: 5,
-  stopLossBackupUsdt: 10,
+  stopLossPrimaryUsdt: 2,
+  stopLossBackupUsdt: 5,
+  stopLossEmergencyUsdt: 7,
   executionEnabled: false,
   liveEnabled: false
 });
