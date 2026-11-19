@@ -5,6 +5,7 @@ import {selectDemoCandidates} from './demo-analyzer-adapter.mjs';
 import {prepareDemoMarketOrder,prepareDemoProbe} from './demo-order-preparation.mjs';
 import {recordConfirmedProbe,planProbeReview} from './demo-stage-planner.mjs';
 import {planStopAfterFill,profitFloorFromPeak} from './demo-protection-planner.mjs';
+import {auditDemoPositionProtection,auditDemoExposure} from './demo-exchange-audit.mjs';
 
 const sym={symbol:'XRPUSDT',status:'TRADING',contractType:'PERPETUAL',quoteAsset:'USDT',filters:[
  {filterType:'MARKET_LOT_SIZE',stepSize:'0.1',minQty:'0.1',maxQty:'100000'},
@@ -53,4 +54,15 @@ test('post-fill protection is planning only',()=>{
 test('malformed exchange lot filters are rejected',()=>{
  const broken={...sym,filters:[{filterType:'MARKET_LOT_SIZE',stepSize:'0.1',minQty:'not-a-number',maxQty:'100000'}]};
  assert.throws(()=>prepareDemoProbe({symbol:'XRPUSDT',side:'BUY',price:2,exchangeSymbol:broken}),/EXCHANGE_FILTER_INVALID/);
+});
+
+test('Demo protection audit distinguishes proposed from confirmed exchange stops',()=>{
+ const position={symbol:'XRPUSDT',positionAmt:'100'};
+ const args={symbol:'XRPUSDT',position,expectedStopSide:'SELL',expectedStopTrigger:1.95};
+ assert.equal(auditDemoPositionProtection({...args,algoOrders:[]}).protected,false);
+ const algoOrders=[{symbol:'XRPUSDT',side:'SELL',algoStatus:'NEW',orderType:'STOP_MARKET',closePosition:true,triggerPrice:'1.95',algoId:42}];
+ const result=auditDemoPositionProtection({...args,algoOrders});
+ assert.equal(result.protected,true);
+ assert.equal(result.stopOrderId,'42');
+ assert.equal(auditDemoExposure({positions:[position],maxConcurrentPositions:5}).openPositionCount,1);
 });
