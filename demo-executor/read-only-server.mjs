@@ -63,7 +63,8 @@ async function refreshFocusedMarket(){
   const client=new BinanceDemoClient({apiKey:key,apiSecret:secret});
   const [positions,ranking]=await Promise.all([client.positions(),getSpeedRanking(client)]);
   const focus=selectFastIndicatorSymbols({positions,rankedCandidates:ranking.ranked});
-  if(!focus.all.length||focus.all.join(',')===focusedSymbols.join(','))return;
+  if(!focus.all.length)return;
+  if(focus.all.join(',')===focusedSymbols.join(',')&&focusedStream?.socket&&focusedStream.socket.readyState<=1)return;
   const stream=new DemoPriceStream({symbols:focus.all});
   const ingest=stream.indicator.ingest.bind(stream.indicator);
   stream.indicator.ingest=(message,receivedAt)=>{
@@ -156,7 +157,7 @@ const server=createServer(async(req,res)=>{
       const [positions,ranking]=await Promise.all([client.positions(),getSpeedRanking(client)]);
       const focus=selectFastIndicatorSymbols({positions,rankedCandidates:ranking.ranked});
       const nextSymbols=focus.all;
-      if(nextSymbols.length&&nextSymbols.join(',')!==focusedSymbols.join(',')){
+      if(nextSymbols.length&&(nextSymbols.join(',')!==focusedSymbols.join(',')||!focusedStream?.socket||focusedStream.socket.readyState>1)){
         const stream=new DemoPriceStream({symbols:nextSymbols});
         const originalIngest=stream.indicator.ingest.bind(stream.indicator);
         stream.indicator.ingest=(message,receivedAt)=>{
