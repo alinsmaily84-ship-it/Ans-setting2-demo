@@ -47,7 +47,7 @@ test('confirmed probe produces 30-second review and 60-second close proposal',()
 });
 test('post-fill protection is planning only',()=>{
  const p=planStopAfterFill({symbol:'XRPUSDT',positionQty:100,entryPrice:2,markPrice:2,tickSize:0.001});
- assert.equal(p.triggerPrice,1.95);
+ assert.equal(p.triggerPrice,1.98);
  assert.equal(p.executionEnabled,false);
  assert.equal(profitFloorFromPeak(0.09).armed,false);
  assert.equal(profitFloorFromPeak(0.10).armed,true);
@@ -153,13 +153,13 @@ test('malformed position entry does not hide the rest of the Demo audit',async()
  assert.equal(report.allOpenPositionsProtected,false);
 });
 
-test('stop price rounding does not increase planned loss beyond five USDT',()=>{
+test('stop price rounding does not increase planned loss beyond primary two USDT',()=>{
  const long=planStopAfterFill({symbol:'XRPUSDT',positionQty:100,entryPrice:2,markPrice:2,tickSize:0.03});
  assert.equal(long.valid,true);
- assert.ok((2-long.triggerPrice)*100<=5+1e-7);
+ assert.ok((2-long.triggerPrice)*100<=demoStrategy.stopLossPrimaryUsdt+1e-7);
  const short=planStopAfterFill({symbol:'XRPUSDT',positionQty:-100,entryPrice:2,markPrice:2,tickSize:0.03});
  assert.equal(short.valid,true);
- assert.ok((short.triggerPrice-2)*100<=5+1e-7);
+ assert.ok((short.triggerPrice-2)*100<=demoStrategy.stopLossPrimaryUsdt+1e-7);
 });
 
 test('hedge-mode position cannot be certified by an unverified close-all stop',async()=>{
