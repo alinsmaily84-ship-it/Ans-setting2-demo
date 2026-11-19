@@ -37,7 +37,10 @@ export async function submitAndVerifyDemoPrimaryStop({
     p.symbol===stop.symbol && (p.positionSide||'BOTH')===positionSide
   );
   if(current.length!==1 ||
+     !Number.isFinite(Number(current[0].positionAmt)) ||
      Number(current[0].positionAmt)!==qty ||
+     !Number.isFinite(Number(current[0].entryPrice)) ||
+     Number(current[0].entryPrice)<=0 ||
      Math.abs(Number(current[0].entryPrice)-entry)>Math.max(1e-8,entry*1e-8))
     return {protected:false,submitted:false,reason:'PRE_SUBMISSION_POSITION_CHANGED'};
   const existing=preflight.algoOrders.filter(o=>
