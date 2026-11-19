@@ -228,7 +228,7 @@ const server=createServer(async(req,res)=>{
   if(req.url==='/health') {res.writeHead(200);res.end(JSON.stringify({status:'ok',venue:'BINANCE_FUTURES_DEMO',execution:'DISABLED',uptimeMs:Date.now()-startedAt}));return;}
   if(req.url==='/readiness') {
     const credentialsPresent=Boolean(process.env.BINANCE_DEMO_API_KEY&&process.env.BINANCE_DEMO_API_SECRET);
-    res.writeHead(200);res.end(JSON.stringify({execution:'DISABLED',strategyParity:'NOT_VERIFIED',credentialsPresent,readyForTrading:false}));return;
+    res.writeHead(200);res.end(JSON.stringify({execution:'DISABLED',strategyParity:'NOT_VERIFIED',credentialsPresent,readyForTrading:false,originalStrategyMode:'UNVERIFIED',speedComparison:'READ_ONLY',entryDecision:'SHADOW_ONLY',automaticEntryConnected:false,exchangeStopLossConnected:false,exchangeProfitClampConnected:false,requiredBeforeDemoAutoTrading:['VERIFY_ORIGINAL_STRATEGY_MODE','CONNECT_ORIGINAL_ENTRY_DECISION','ATTACH_AND_VERIFY_EXCHANGE_STOP_LOSS','CONNECT_PROFIT_CLAMP_TO_VERIFIED_POSITIONS','VERIFY_COMPLETE_DEMO_TRADE_LIFECYCLE']}));return;
   }
   if(req.method==='GET' && req.url==='/demo-auth-check') {
     try {
